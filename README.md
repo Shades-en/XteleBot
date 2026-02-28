@@ -1,57 +1,79 @@
 # Simple Telegram Bot (aiogram 3.25.0)
 
-## 1) Install uv (required in this repo workflow)
+This bot supports two run modes:
+- `polling` for local development
+- `webhook` for free Render Web Service deployment
+
+## Local setup
+
+1. Install uv:
 
 ```bash
 brew install uv
 ```
 
-## 2) Install dependencies
+2. Install deps:
 
 ```bash
 uv sync --dev
 ```
 
-## 3) Configure token
-
-Put your bot token in `.env`:
+3. Configure `.env`:
 
 ```bash
 TELEGRAM_BOT_TOKEN=your_token_here
-BOT_ENV=development
-TELEGRAM_DISABLE_SSL_VERIFY=false
-TELEGRAM_PROXY=
+BOT_RUN_MODE=polling
+WEBHOOK_BASE_URL=
+WEBHOOK_PATH=/telegram/webhook
+WEBHOOK_SECRET_TOKEN=
 ```
 
-Optional network troubleshooting:
-- If your network requires an HTTPS proxy, set `TELEGRAM_PROXY` (for example `http://127.0.0.1:7890`).
-- You can disable certificate verification for testing only: `TELEGRAM_DISABLE_SSL_VERIFY=true`.
-- `TELEGRAM_DISABLE_SSL_VERIFY=true` is allowed only in `BOT_ENV=development`.
-- `TELEGRAM_DISABLE_SSL_VERIFY=true` does not fix raw connectivity blocks; it only bypasses cert validation.
-
-## 4) Run bot
+4. Run locally:
 
 ```bash
 uv run python main.py
 ```
 
-Then message your bot in Telegram.
-
 Commands:
 - `/start`
 - `/ping`
-- Any text message is echoed.
+- any text message is echoed
 
-## Development Deploy (Render worker)
+## Free Render deploy (Webhook mode)
 
-Use this if your local network cannot access `api.telegram.org`.
+Background workers are paid on Render. Use a free **Web Service** instead.
 
 1. Push this repo to GitHub.
-2. In Render, create from Blueprint and select this repo (`render.yaml` is included).
-3. In Render service env vars, set:
-   - `TELEGRAM_BOT_TOKEN` = your token
-   - keep `BOT_ENV=development`
-   - keep `TELEGRAM_PROXY` empty unless your Render environment needs one
-4. Start the worker.
+2. In Render, create service from this repo as a **Web Service** (or use Blueprint with `render.yaml`).
+3. Use:
 
-The worker runs polling mode (`python main.py`) and is intended for development testing.
+```bash
+Build Command: pip install -r requirements.txt
+Start Command: python main.py
+```
+
+4. Set environment variables in Render:
+
+```bash
+TELEGRAM_BOT_TOKEN=<your token>
+BOT_RUN_MODE=webhook
+WEBHOOK_PATH=/telegram/webhook
+WEBHOOK_SECRET_TOKEN=<random_secret_string>
+```
+
+5. Optional (if Render does not auto-provide `RENDER_EXTERNAL_URL`):
+
+```bash
+WEBHOOK_BASE_URL=https://<your-service>.onrender.com
+```
+
+6. Deploy. Check logs for:
+- `Webhook set to https://.../telegram/webhook`
+
+7. Open health check:
+- `https://<your-service>.onrender.com/health`
+
+## Notes
+
+- If local network blocks Telegram, use Render webhook mode.
+- Regenerate your bot token in BotFather if it was exposed.
