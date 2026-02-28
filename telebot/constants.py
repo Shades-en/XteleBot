@@ -30,8 +30,8 @@ COMMAND_SCHEDULE: Final[str] = "schedule"
 COMMAND_TOP10: Final[str] = "top10"
 COMMAND_TOP10FAV: Final[str] = "top10fav"
 COMMAND_UPDATEFAV: Final[str] = "updatefav"
-COMMAND_CONTENT_STYLE_CREATORS: Final[str] = "contentStyleCreators"
-COMMAND_UPDATE_CONTENT_STYLE_CREATORS: Final[str] = "updateContentStyleCreators"
+COMMAND_CONTENT_STYLE_CREATORS: Final[str] = "contentstylecreators"
+COMMAND_UPDATE_CONTENT_STYLE_CREATORS: Final[str] = "updatecontentstylecreators"
 
 ACTION_COMMANDS: Final[list[tuple[str, str]]] = [
     (COMMAND_REPLYPOST, "Reply to a post (boilerplate)"),
@@ -47,6 +47,23 @@ ACTION_COMMANDS: Final[list[tuple[str, str]]] = [
     ),
     (COMMAND_PING, "Ping bot"),
 ]
+
+COMMAND_BUTTON_LABELS: Final[dict[str, str]] = {
+    COMMAND_REPLYPOST: "/replypost",
+    COMMAND_POST: "/post",
+    COMMAND_SCHEDULE: "/schedule",
+    COMMAND_TOP10: "/top10",
+    COMMAND_TOP10FAV: "/top10fav",
+    COMMAND_UPDATEFAV: "/updatefav",
+    COMMAND_CONTENT_STYLE_CREATORS: "/contentStyleCreators",
+    COMMAND_UPDATE_CONTENT_STYLE_CREATORS: "/updateContentStyleCreators",
+    COMMAND_PING: "/ping",
+}
+
+LEGACY_COMMAND_ALIASES: Final[dict[str, str]] = {
+    "/contentStyleCreators": COMMAND_CONTENT_STYLE_CREATORS,
+    "/updateContentStyleCreators": COMMAND_UPDATE_CONTENT_STYLE_CREATORS,
+}
 
 BOT_MENU_COMMANDS: Final[list[tuple[str, str]]] = [
     (COMMAND_START, "Show command panel"),

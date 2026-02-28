@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from telebot.constants import (
     ACTION_COMMANDS,
     BOT_MENU_COMMANDS,
+    COMMAND_BUTTON_LABELS,
     COMMAND_CONTENT_STYLE_CREATORS,
     COMMAND_HELP,
     COMMAND_PING,
@@ -15,6 +16,7 @@ from telebot.constants import (
     COMMAND_TOP10FAV,
     COMMAND_UPDATEFAV,
     COMMAND_UPDATE_CONTENT_STYLE_CREATORS,
+    LEGACY_COMMAND_ALIASES,
     TEXT_BOILERPLATE_TEMPLATE,
     TEXT_CHOOSE_COMMAND,
     TEXT_PONG,
@@ -26,6 +28,8 @@ COMMAND_PREFIX = "/"
 CALLBACK_PREFIX = "cmd:"
 
 KNOWN_COMMAND_NAMES = {name for name, _ in ACTION_COMMANDS}
+COMMAND_TOKEN_SEPARATOR = " "
+BOT_COMMAND_SEPARATOR = "@"
 
 
 def build_commands_keyboard() -> InlineKeyboardMarkup:
@@ -33,9 +37,10 @@ def build_commands_keyboard() -> InlineKeyboardMarkup:
     row: list[InlineKeyboardButton] = []
 
     for name, _ in ACTION_COMMANDS:
+        button_text = COMMAND_BUTTON_LABELS.get(name, f"{COMMAND_PREFIX}{name}")
         row.append(
             InlineKeyboardButton(
-                text=f"{COMMAND_PREFIX}{name}",
+                text=button_text,
                 callback_data=f"{CALLBACK_PREFIX}{name}",
             )
         )
@@ -102,6 +107,15 @@ async def handle_update_content_style_creators(message: Message) -> None:
 
 
 async def handle_unknown_command(message: Message) -> None:
+    command_token = extract_command_token(message.text)
+    resolved = LEGACY_COMMAND_ALIASES.get(command_token)
+    if resolved is not None:
+        if resolved == COMMAND_PING:
+            await handle_ping(message)
+            return
+        await send_stub(message, resolved)
+        return
+
     await message.answer(TEXT_UNRECOGNIZED_COMMAND)
 
 
@@ -131,6 +145,14 @@ async def handle_command_button(callback: CallbackQuery) -> None:
 
 def build_bot_menu_commands() -> list[tuple[str, str]]:
     return list(BOT_MENU_COMMANDS)
+
+
+def extract_command_token(text: str | None) -> str:
+    if text is None:
+        return ""
+
+    token = text.strip().split(COMMAND_TOKEN_SEPARATOR, maxsplit=1)[0]
+    return token.split(BOT_COMMAND_SEPARATOR, maxsplit=1)[0]
 
 
 def register_handlers(dispatcher: Dispatcher) -> None:
