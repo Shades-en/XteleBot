@@ -1,0 +1,17 @@
+services:
+  - type: worker
+    name: telebot-dev
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    autoDeploy: false
+    envVars:
+      - key: BOT_ENV
+        value: development
+      - key: TELEGRAM_DISABLE_SSL_VERIFY
+        value: "false"
+      - key: TELEGRAM_PROXY
+        value: ""
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
