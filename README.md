@@ -1,69 +1,66 @@
-# Simple Telegram Bot (aiogram 3.25.0)
+# X Content Copilot
 
-Polling-only Telegram bot for local testing.
+Telegram bot plus worker for X research and content drafting.
 
-## Project layout
+## Run Model
 
-- `main.py` - thin launcher
-- `telebot/constants.py` - shared constants (commands, text, env keys/defaults, log/error templates)
-- `telebot/config.py` - settings parsing and validation
-- `telebot/handlers.py` - message handlers and router registration
-- `telebot/session.py` - single source of truth for proxy behavior
-- `telebot/app.py` - bot creation, startup flow, and runtime logging/errors
+Two processes are expected:
+- `python main.py` for the Telegram bot
+- `python worker.py` for background analysis jobs
+
+## Package Layout
+
+- `telebot/common/` shared enums, constants, text, commands
+- `telebot/config/` environment settings
+- `telebot/db/` models, repositories, schema bootstrap
+- `telebot/telegram/` bot handlers, menu, proxy session
+- `telebot/twitter/` twitterapi.io client, schemas, queries
+- `telebot/search/` bounded search orchestration
+- `telebot/agents/` Agno factory and learning config
+- `telebot/workflows/` onboarding, schedule, analysis, creator flows
+- `telebot/worker/` dedicated async worker loop
+- `.plans/` implementation tracking plans
+
+## Commands
+
+- `/start`
+- `/help`
+- `/ping`
+- `/currentuser`
+- `/jobstatus`
+- `/reset_schema` (development only)
+- `/analysetoday`
+- `/postbyinspiration`
+- `/quote`
+- `/comment`
+- `/schedule`
+
+## Environment
+
+Use `.env` for local secrets and `.env.example` as the template.
+
+Key groups:
+- Telegram: `TELEGRAM_BOT_TOKEN`, `BOT_ENV`, proxy settings for development
+- Postgres: `POSTGRES_*`
+- APIs: `TWITTER_API_KEY`, `SERPER_API_KEY`, `OPENAI_API_KEY`
 
 ## Setup
 
-1. Install uv:
+1. Install `uv`.
+2. Run `uv sync --dev`.
+3. Start the bot:
+   - `uv run python main.py`
+4. Start the worker:
+   - `uv run python worker.py`
 
-```bash
-brew install uv
-```
+## Notes
 
-2. Install deps:
+- Development mode uses the Telegram proxy only from `telebot/telegram/session.py`.
+- The bot process auto-creates schema on startup when `AUTO_CREATE_SCHEMA=true`.
+- In `BOT_ENV=development`, bot startup drops and recreates the app schema before polling begins.
+- Alembic files are included for migration management.
+- The credentials and tokens currently present in chat history should be rotated if this thread is not private.
 
-```bash
-uv sync --dev
-```
-
-3. Configure `.env`:
-
-```bash
-TELEGRAM_BOT_TOKEN=your_token_here
-BOT_ENV=production
-TELEGRAM_API_BASE_URL=https://portfolio-git-proxy-owais-iqbals-projects-ae6a6135.vercel.app/proxy
-TELEGRAM_PROXY_TARGET=https://api.telegram.org
-VERCEL_BYPASS_TOKEN=
-```
-
-- `BOT_ENV=development`: enables proxy mode and adds `x-proxy-target` header.
-- `BOT_ENV=production`: disables proxy mode and uses direct Telegram API.
-- If `BOT_ENV` is missing, default is `production`.
-- `TELEGRAM_API_BASE_URL`, `TELEGRAM_PROXY_TARGET`, and `VERCEL_BYPASS_TOKEN` are used only in development mode.
-
-4. Run:
-
-```bash
-uv run python main.py
-```
-
-Commands:
-- `/start` and `/help` show an inline GUI command panel
-- `/replypost`
-- `/post`
-- `/schedule`
-- `/top10`
-- `/top10fav`
-- `/updatefav`
-- `/contentStyleCreators`
-- `/updateContentStyleCreators`
-- `/ping`
-
-Current boilerplate behavior:
-- `/ping` replies `pong`
-- other listed commands reply with a boilerplate placeholder
-- unknown slash commands reply `Unrecognized command. Use /help.`
-- plain non-command text is ignored
-
-## Important
-
-If the proxy URL returns a Vercel Authentication page (`401 Authentication Required`), the bot cannot work until you make that deployment public or configure Vercel protection bypass.
+# TODO:
+1. Review the AI models in each workflow used
+2. Make sure in all workflows we are only picking those posts that have unsafe as not true

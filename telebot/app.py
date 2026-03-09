@@ -3,51 +3,46 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.exceptions import ClientDecodeError, TelegramNetworkError
-from aiogram.types import BotCommand
 from dotenv import load_dotenv
 
+from telebot.agents.factory import AgnoFactory
 from telebot.config import Settings, load_settings
-from telebot.constants import (
-    ENV_DEVELOPMENT,
-    ENV_PRODUCTION,
-    ERR_DEV_PROXY_REQUIRED,
-    GENERIC_AUTH_REQUIRED_MARKER,
-    LOG_BOT_ENV,
-    LOG_DIRECT_API_MODE,
-    LOG_NETWORK_ERROR_DIRECT,
-    LOG_NETWORK_ERROR_WITH_PROXY,
-    LOG_POLLING_MODE_ENABLED,
-    LOG_PROXY_AUTH_PROTECTED,
-    LOG_PROXY_TARGET,
-    LOG_TELEGRAM_API_BASE_URL,
-    LOG_VERCEL_BYPASS_NOT_SET,
-    LOG_VERCEL_BYPASS_SET,
-    LOG_VERCEL_BYPASS_TOKEN_STATUS,
-    VERCEL_AUTH_MARKER,
-)
-from telebot.handlers import build_bot_menu_commands, register_handlers
-from telebot.session import create_proxy_session
+from telebot.db.base import create_engine, create_session_factory
+from telebot.db.bootstrap import create_schema
+from telebot.telegram.handlers import TelegramHandlers
+from telebot.telegram.menus import build_menu_commands
+from telebot.telegram.router import register_handlers
+from telebot.telegram.session import create_proxy_session
+from telebot.twitter.client import TwitterApiClient
+from telebot.workflows.creator import CreatorWorkflowService
+from telebot.workflows.admin import AdminWorkflowService
+from telebot.workflows.job_status import JobStatusWorkflowService
+from telebot.workflows.onboarding import OnboardingWorkflowService
+from telebot.workflows.schedule import ScheduleWorkflowService
+from telebot.workflows.user_details import UserDetailsWorkflowService
 
-
-def create_dispatcher() -> Dispatcher:
-    dispatcher = Dispatcher()
-    register_handlers(dispatcher)
-    return dispatcher
+VERCEL_AUTH_MARKER = "vercel authentication"
+GENERIC_AUTH_REQUIRED_MARKER = "authentication required"
+DEVELOPMENT_SCHEMA_RESET_LOG = "Development mode detected. Dropping and recreating app schema."
 
 
 def create_bot(settings: Settings) -> Bot:
-    if settings.bot_env == ENV_PRODUCTION:
-        return Bot(token=settings.token)
-
-    if settings.api_base_url is None or settings.proxy_target is None:
-        raise RuntimeError(ERR_DEV_PROXY_REQUIRED)
-
-    session = create_proxy_session(
-        api_base_url=settings.api_base_url,
-        proxy_target=settings.proxy_target,
-        vercel_bypass_token=settings.vercel_bypass_token,
+    if settings.bot_env.value == "production":
+        return Bot(token=settings.telegram_token)
+    return Bot(
+        token=settings.telegram_token,
+        session=create_proxy_session(
+            settings.proxy_base_url,
+            settings.proxy_target,
+            settings.vercel_bypass_token,
+        ),
     )
-    return Bot(token=settings.token, session=session)
+
+
+def create_dispatcher(handlers: TelegramHandlers) -> Dispatcher:
+    dispatcher = Dispatcher()
+    register_handlers(dispatcher, handlers)
+    return dispatcher
 
 
 def is_vercel_auth_page(content: str) -> bool:
@@ -55,54 +50,46 @@ def is_vercel_auth_page(content: str) -> bool:
     return VERCEL_AUTH_MARKER in lowered or GENERIC_AUTH_REQUIRED_MARKER in lowered
 
 
-def build_bot_commands() -> list[BotCommand]:
-    return [
-        BotCommand(command=name, description=description)
-        for name, description in build_bot_menu_commands()
-    ]
-
-
-async def run_polling(settings: Settings) -> None:
+async def run_bot(settings: Settings) -> None:
+    engine = create_engine(settings)
+    if settings.auto_create_schema:
+        await create_schema(
+            engine,
+            # reset_schema=settings.bot_env.value == "development",
+            reset_schema=False,
+        )
+    session_factory = create_session_factory(engine=engine)
+    twitter_client = TwitterApiClient(settings.twitter_api_key)
+    agno_factory = AgnoFactory(settings)
+    handlers = TelegramHandlers(
+        session_factory=session_factory,
+        onboarding_service=OnboardingWorkflowService(session_factory, twitter_client),
+        creator_service=CreatorWorkflowService(session_factory, agno_factory),
+        schedule_service=ScheduleWorkflowService(session_factory),
+        user_details_service=UserDetailsWorkflowService(session_factory),
+        job_status_service=JobStatusWorkflowService(session_factory),
+        admin_service=AdminWorkflowService(settings, engine),
+    )
     bot = create_bot(settings)
-    dispatcher = create_dispatcher()
-
+    dispatcher = create_dispatcher(handlers)
     try:
         await bot.delete_webhook(drop_pending_updates=True)
-        await bot.set_my_commands(build_bot_commands())
+        await bot.set_my_commands(build_menu_commands())
         await dispatcher.start_polling(bot)
     except ClientDecodeError as exc:
-        content = str(exc.data)
-        if is_vercel_auth_page(content):
-            logging.error(LOG_PROXY_AUTH_PROTECTED)
+        if is_vercel_auth_page(str(exc.data)):
+            logging.error("Telegram proxy is behind Vercel auth.")
         raise
-    except TelegramNetworkError as exc:
-        if settings.bot_env == ENV_DEVELOPMENT:
-            logging.error(LOG_NETWORK_ERROR_WITH_PROXY, settings.api_base_url, exc)
-        else:
-            logging.error(LOG_NETWORK_ERROR_DIRECT, exc)
+    except TelegramNetworkError:
+        logging.exception("Telegram network error")
         raise
     finally:
+        await twitter_client.close()
         await bot.session.close()
+        await engine.dispose()
 
 
 def run() -> None:
     load_dotenv()
     logging.basicConfig(level=logging.INFO)
-
-    settings = load_settings()
-
-    logging.info(LOG_POLLING_MODE_ENABLED)
-    logging.info(LOG_BOT_ENV, settings.bot_env)
-    if settings.bot_env == ENV_DEVELOPMENT:
-        logging.info(LOG_TELEGRAM_API_BASE_URL, settings.api_base_url)
-        logging.info(LOG_PROXY_TARGET, settings.proxy_target)
-        token_status = (
-            LOG_VERCEL_BYPASS_SET
-            if settings.vercel_bypass_token
-            else LOG_VERCEL_BYPASS_NOT_SET
-        )
-        logging.info(LOG_VERCEL_BYPASS_TOKEN_STATUS, token_status)
-    else:
-        logging.info(LOG_DIRECT_API_MODE)
-
-    asyncio.run(run_polling(settings=settings))
+    asyncio.run(run_bot(load_settings()))

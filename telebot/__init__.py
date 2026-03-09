@@ -1,1 +1,1 @@
-"""Telegram bot package."""
+"""X Content Copilot package."""

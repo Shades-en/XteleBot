@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
 
-from telebot.constants import (
+from telebot.common.constants import (
     HEADER_PROXY_TARGET,
     PROXY_BOT_PATH_SUFFIX,
     PROXY_FILE_PATH_SUFFIX,
@@ -29,17 +29,15 @@ class ProxyTelegramSession(AiohttpSession):
 def build_api_server(api_base_url: str, vercel_bypass_token: str) -> TelegramAPIServer:
     base = f"{api_base_url}{PROXY_BOT_PATH_SUFFIX}"
     file = f"{api_base_url}{PROXY_FILE_PATH_SUFFIX}"
-
     if vercel_bypass_token:
-        bypass_query = urlencode(
+        query = urlencode(
             {
                 QUERY_BYPASS_COOKIE_KEY: QUERY_BYPASS_COOKIE_VALUE,
                 QUERY_BYPASS_TOKEN_KEY: vercel_bypass_token,
             }
         )
-        base = f"{base}?{bypass_query}"
-        file = f"{file}?{bypass_query}"
-
+        base = f"{base}?{query}"
+        file = f"{file}?{query}"
     return TelegramAPIServer(base=base, file=file)
 
 
@@ -48,8 +46,7 @@ def create_proxy_session(
     proxy_target: str,
     vercel_bypass_token: str,
 ) -> ProxyTelegramSession:
-    api_server = build_api_server(
-        api_base_url=api_base_url,
-        vercel_bypass_token=vercel_bypass_token,
+    return ProxyTelegramSession(
+        api_server=build_api_server(api_base_url, vercel_bypass_token),
+        proxy_target=proxy_target,
     )
-    return ProxyTelegramSession(api_server=api_server, proxy_target=proxy_target)
