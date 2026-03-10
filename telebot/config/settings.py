@@ -20,6 +20,9 @@ BRAVE_SEARCH_API_KEY_ENV_VAR = "BRAVE_SEARCH_API_KEY"
 OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
 WORKER_CHAT_ID_ENV_VAR = "WORKER_CHAT_ID"
 AUTO_CREATE_SCHEMA_ENV_VAR = "AUTO_CREATE_SCHEMA"
+WEBHOOK_BASE_URL_ENV_VAR = "WEBHOOK_BASE_URL"
+WEBHOOK_PATH_ENV_VAR = "WEBHOOK_PATH"
+WEBHOOK_SECRET_TOKEN_ENV_VAR = "WEBHOOK_SECRET_TOKEN"
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,9 @@ class Settings:
     brave_search_api_key: str
     openai_api_key: str
     auto_create_schema: bool
+    webhook_base_url: str
+    webhook_path: str
+    webhook_secret_token: str
 
 
 def _required(name: str) -> str:
@@ -92,4 +98,7 @@ def load_settings() -> Settings:
         openai_api_key=_required(OPENAI_API_KEY_ENV_VAR),
         auto_create_schema=_optional(AUTO_CREATE_SCHEMA_ENV_VAR, "true").lower()
         == "true",
+        webhook_base_url=_required(WEBHOOK_BASE_URL_ENV_VAR).rstrip("/"),
+        webhook_path="/" + _required(WEBHOOK_PATH_ENV_VAR).strip("/"),
+        webhook_secret_token=_required(WEBHOOK_SECRET_TOKEN_ENV_VAR),
     )

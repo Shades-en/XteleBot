@@ -1,11 +1,11 @@
 # X Content Copilot
 
-Telegram bot for X research and content drafting with an in-process background analysis loop.
+Telegram bot for X research and content drafting with webhook delivery and an in-process background analysis loop.
 
 ## Run Model
 
 One process is expected:
-- `python main.py` for the Telegram bot and background analysis loop
+- `python main.py` for the Telegram webhook server and background analysis loop
 
 ## Package Layout
 
@@ -54,6 +54,7 @@ Use `.env` for local secrets and `.env.example` as the template.
 
 Key groups:
 - Telegram: `TELEGRAM_BOT_TOKEN`, `BOT_ENV`, proxy settings for development
+- Webhook: `WEBHOOK_BASE_URL`, `WEBHOOK_PATH`, `WEBHOOK_SECRET_TOKEN`
 - Postgres: `POSTGRES_*`
 - APIs: `TWITTER_API_KEY`, `BRAVE_SEARCH_API_KEY`, `OPENAI_API_KEY`
 
@@ -64,14 +65,36 @@ Key groups:
 3. Start the app:
    - `uv run python main.py`
 
+The app exposes:
+- `GET /healthz` for Render health checks
+- `POST /<WEBHOOK_PATH>` for Telegram webhooks
+
 ## Notes
 
 - Development mode uses the Telegram proxy only from `telebot/telegram/session.py`.
 - The app auto-creates schema on startup when `AUTO_CREATE_SCHEMA=true`.
+- The app uses Telegram webhooks instead of long polling.
 - In `BOT_ENV=development`, use `/reset_schema` or `/reanalysefortoday` when you want to clear dev data deliberately.
 - Analysis completion and failure messages include API-only cost reporting for OpenAI, Brave, and TwitterAPI.io.
 - Alembic files are included for migration management.
 - The credentials and tokens currently present in chat history should be rotated if this thread is not private.
+
+## Render Deployment
+
+Deploy this app as a Render Web Service.
+
+- Build command: `uv sync --frozen`
+- Start command: `uv run python main.py`
+- Health check path: `/healthz`
+- Instance count: `1`
+
+Required webhook env vars:
+- `WEBHOOK_BASE_URL`
+  - your public Render URL, for example `https://your-service.onrender.com`
+- `WEBHOOK_PATH`
+  - for example `telegram/webhook`
+- `WEBHOOK_SECRET_TOKEN`
+  - shared secret used to validate Telegram webhook requests
 
 ## Notes On Search
 
