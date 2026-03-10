@@ -2,24 +2,22 @@
 
 ## Purpose
 - This repository is a Telegram copilot for X content research and draft generation.
-- It runs as two cooperating processes:
-  - `main.py` starts the Telegram bot, registers commands, and handles user interaction.
-  - `worker.py` polls queued jobs and runs the heavier analysis workflow in the background.
+- It runs as a single process:
+  - `main.py` starts the Telegram bot, registers commands, and hosts the background analysis loop in-process.
 - The bot is not a generic chat assistant. The product is deterministic application logic wrapped around targeted LLM use.
 
 ## First Read For A New Agent
-- Read [README.md](/Users/5155106/mystuff/bots/telebot/README.md) for the high-level product summary.
-- Read [telebot/app.py](/Users/5155106/mystuff/bots/telebot/telebot/app.py) to understand bot composition.
-- Read [telebot/worker/service.py](/Users/5155106/mystuff/bots/telebot/telebot/worker/service.py) to understand job execution and progress reporting.
-- Read [telebot/telegram/handlers.py](/Users/5155106/mystuff/bots/telebot/telebot/telegram/handlers.py) and [telebot/telegram/router.py](/Users/5155106/mystuff/bots/telebot/telebot/telegram/router.py) for command wiring.
-- Read [telebot/workflows/analysis/__init__.py](/Users/5155106/mystuff/bots/telebot/telebot/workflows/analysis/__init__.py) for the main workflow graph.
-- Read [telebot/common/constants.py](/Users/5155106/mystuff/bots/telebot/telebot/common/constants.py), [telebot/common/enums.py](/Users/5155106/mystuff/bots/telebot/telebot/common/enums.py), [telebot/common/messages.py](/Users/5155106/mystuff/bots/telebot/telebot/common/messages.py), and [telebot/common/commands.py](/Users/5155106/mystuff/bots/telebot/telebot/common/commands.py) before adding new reusable literals.
+- Read [README.md](README.md) for the high-level product summary.
+- Read [telebot/app.py](telebot/app.py) to understand bot composition.
+- Read [telebot/worker/service.py](telebot/worker/service.py) to understand job execution and progress reporting.
+- Read [telebot/telegram/handlers.py](telebot/telegram/handlers.py) and [telebot/telegram/router.py](telebot/telegram/router.py) for command wiring.
+- Read [telebot/workflows/analysis/__init__.py](telebot/workflows/analysis/__init__.py) for the main workflow graph.
+- Read [telebot/common/constants.py](telebot/common/constants.py), [telebot/common/enums.py](telebot/common/enums.py), [telebot/common/messages.py](telebot/common/messages.py), and [telebot/common/commands.py](telebot/common/commands.py) before adding new reusable literals.
 
 ## Runtime And Setup
 - Package manager and runtime: `uv`, Python 3.11+.
 - Install dependencies with `uv sync --dev`.
-- Run the bot with `uv run python main.py`.
-- Run the worker with `uv run python worker.py`.
+- Run the app with `uv run python main.py`.
 - Use `.env` for local secrets and keep `.env.example` aligned for any new environment variables.
 - The current stack uses:
   - `aiogram` for Telegram interactions
@@ -32,7 +30,7 @@
 ## Mental Model
 - Telegram handlers should stay thin. They validate request state, enqueue work, or delegate to workflow services.
 - Workflow services own command behavior and orchestration.
-- The worker owns long-running analysis jobs and progress notifications.
+- The in-process background analysis loop owns long-running analysis jobs and progress notifications.
 - Repositories own persistence reads/writes that are reused or non-trivial.
 - LLMs are used for classification, planning, synthesis, and content creation, not for routing correctness or persistence decisions.
 - Shared literals and user-facing copy belong in common modules, not inline inside workflows.
@@ -41,7 +39,7 @@
 1. `/start` begins onboarding and asks for an X username.
 2. Onboarding verifies the username through the Twitter client and stores user/session state.
 3. `/analysetoday` queues a job.
-4. The worker runs the analysis workflow:
+4. The background analysis loop runs the analysis workflow:
    - collect posts
    - rank posts
    - classify top posts
@@ -52,12 +50,12 @@
 6. Follow-up user messages can refine the active draft session.
 
 ## Repository Map
-- `main.py`, `worker.py`
-  - Thin process entrypoints only. Keep them trivial.
+- `main.py`
+  - Thin process entrypoint only. Keep it trivial.
 - `telebot/app.py`
-  - Bot composition root. Creates settings, engine, services, bot session, dispatcher, and polling loop.
+  - Bot composition root. Creates settings, engine, services, bot session, dispatcher, polling loop, and background analysis loop.
 - `telebot/worker/`
-  - Worker process entrypoint and forever-loop job processor.
+  - In-process background analysis loop and job processor.
 - `telebot/common/`
   - Shared constants, enums, command metadata, and user-visible text.
 - `telebot/config/`
@@ -86,35 +84,35 @@
   - Local planning artifacts.
 
 ## Non-Negotiable Structure Rules
-- Do not dump business logic into `main.py`, `worker.py`, or `telebot/app.py`.
+- Do not dump business logic into `main.py` or `telebot/app.py`.
 - Keep source files focused. Target under 200 lines where practical; 250 lines is the hard limit.
 - Reuse the existing module split before creating new packages.
-- Keep constants in [telebot/common/constants.py](/Users/5155106/mystuff/bots/telebot/telebot/common/constants.py).
-- Keep enums in [telebot/common/enums.py](/Users/5155106/mystuff/bots/telebot/telebot/common/enums.py).
-- Keep user-facing messages in [telebot/common/messages.py](/Users/5155106/mystuff/bots/telebot/telebot/common/messages.py).
-- Keep command labels/menu metadata in [telebot/common/commands.py](/Users/5155106/mystuff/bots/telebot/telebot/common/commands.py).
+- Keep constants in [telebot/common/constants.py](telebot/common/constants.py).
+- Keep enums in [telebot/common/enums.py](telebot/common/enums.py).
+- Keep user-facing messages in [telebot/common/messages.py](telebot/common/messages.py).
+- Keep command labels/menu metadata in [telebot/common/commands.py](telebot/common/commands.py).
 - Do not introduce reusable raw literals directly into handlers, workflows, or repositories.
 - Avoid direct cross-feature imports when a shared module already exists.
 
 ## How To Add Or Change Features
 
 ### Add A Telegram Command
-- Add the enum in [telebot/common/enums.py](/Users/5155106/mystuff/bots/telebot/telebot/common/enums.py).
-- Add descriptions, button labels, and menu inclusion in [telebot/common/commands.py](/Users/5155106/mystuff/bots/telebot/telebot/common/commands.py).
-- Add user-facing copy in [telebot/common/messages.py](/Users/5155106/mystuff/bots/telebot/telebot/common/messages.py).
+- Add the enum in [telebot/common/enums.py](telebot/common/enums.py).
+- Add descriptions, button labels, and menu inclusion in [telebot/common/commands.py](telebot/common/commands.py).
+- Add user-facing copy in [telebot/common/messages.py](telebot/common/messages.py).
 - Implement or extend a workflow service in `telebot/workflows/`.
-- Wire the handler in [telebot/telegram/handlers.py](/Users/5155106/mystuff/bots/telebot/telebot/telegram/handlers.py).
-- Register slash-command and callback behavior in [telebot/telegram/router.py](/Users/5155106/mystuff/bots/telebot/telebot/telegram/router.py).
+- Wire the handler in [telebot/telegram/handlers.py](telebot/telegram/handlers.py).
+- Register slash-command and callback behavior in [telebot/telegram/router.py](telebot/telegram/router.py).
 - Shared behavior must be reused between slash commands and inline buttons.
 
 ### Add Background Work
 - Queue it from handlers through `JobRepository`; do not perform long-running work in the bot request path.
-- Implement execution in [telebot/worker/service.py](/Users/5155106/mystuff/bots/telebot/telebot/worker/service.py) or a dedicated worker-side helper.
-- Use the existing progress stage model and send user-visible progress updates through the worker notifier path.
+- Implement execution in [telebot/worker/service.py](telebot/worker/service.py) or a dedicated background-loop helper.
+- Use the existing progress stage model and send user-visible progress updates through the background notifier path.
 
 ### Add Analysis Workflow Logic
 - Keep it in `telebot/workflows/analysis/` as a dedicated executor or helper, not inside handlers.
-- Compose it into [telebot/workflows/analysis/__init__.py](/Users/5155106/mystuff/bots/telebot/telebot/workflows/analysis/__init__.py).
+- Compose it into [telebot/workflows/analysis/__init__.py](telebot/workflows/analysis/__init__.py).
 - Prefer deterministic step ordering and explicit data passing through `StepInput.additional_data`.
 - Report progress through `AnalysisContext.progress_callback`, not ad hoc Telegram calls.
 
@@ -126,7 +124,7 @@
 
 ### Add Prompting Or LLM Output
 - Put prompt text in `telebot/prompts/`.
-- Put agent construction and shared model wiring in [telebot/agents/factory.py](/Users/5155106/mystuff/bots/telebot/telebot/agents/factory.py).
+- Put agent construction and shared model wiring in [telebot/agents/factory.py](telebot/agents/factory.py).
 - Put machine-consumed outputs in Pydantic schemas under `telebot/agents/` or `telebot/search/`.
 - Keep control flow outside the prompt. The model should not decide whether persistence, routing, or status transitions occur.
 
@@ -158,17 +156,17 @@
 - Non-command text should only be treated as meaningful when the current session status expects it, such as onboarding or draft refinement.
 
 ## Environment And Proxy Rules
-- Development proxy behavior must stay isolated in [telebot/telegram/session.py](/Users/5155106/mystuff/bots/telebot/telebot/telegram/session.py).
+- Development proxy behavior must stay isolated in [telebot/telegram/session.py](telebot/telegram/session.py).
 - Do not duplicate proxy URL, header, or bypass logic anywhere else.
-- `BOT_ENV=development` enables proxy setup in the bot and worker notification path.
-- `AUTO_CREATE_SCHEMA=true` currently causes schema creation on both bot and worker startup.
-- Schema reset behavior belongs in [telebot/db/bootstrap.py](/Users/5155106/mystuff/bots/telebot/telebot/db/bootstrap.py).
-- Do not make the worker auto-drop schema on startup unless explicitly requested.
+- `BOT_ENV=development` enables proxy setup in the bot and background notification path.
+- `AUTO_CREATE_SCHEMA=true` currently causes schema creation on app startup.
+- Schema reset behavior belongs in [telebot/db/bootstrap.py](telebot/db/bootstrap.py).
+- Do not make the background analysis loop auto-drop schema on startup unless explicitly requested.
 
 ## Database And Schema Rules
 - Postgres is the source of truth.
 - Use SQLAlchemy async patterns already established here.
-- Schema bootstrap and reset helpers live in [telebot/db/bootstrap.py](/Users/5155106/mystuff/bots/telebot/telebot/db/bootstrap.py).
+- Schema bootstrap and reset helpers live in [telebot/db/bootstrap.py](telebot/db/bootstrap.py).
 - Prefer repository operations over direct ORM access in handlers and workflows when logic could be reused.
 - Be careful with dev-only schema reset paths; they are destructive by design.
 
@@ -176,7 +174,6 @@
 - `/start`
 - `/help`
 - `/ping`
-- `/pingworker`
 - `/currentuser`
 - `/jobstatus`
 - `/reset_schema`
@@ -210,7 +207,7 @@
 
 ## Validation Before Finishing
 - At minimum run:
-  - `.venv/bin/python -m py_compile main.py worker.py $(find telebot -name '*.py' -type f | tr '\n' ' ')`
+  - `.venv/bin/python -m py_compile main.py $(find telebot -name '*.py' -type f | tr '\n' ' ')`
 - When you change behavior meaningfully, also run the most relevant `uv run` command path or targeted sanity checks.
 - If you add or change environment variables, update `.env.example`.
 - If you add dependencies, update `pyproject.toml` and keep `uv.lock` consistent.
@@ -228,6 +225,6 @@
 - The change fits the existing package boundaries.
 - User-facing behavior is deterministic and clear.
 - Shared literals live in the common modules.
-- Long-running work is delegated to the worker when appropriate.
+- Long-running work is delegated to the in-process background analysis loop when appropriate.
 - LLM outputs are structured when code consumes them.
 - Validation was run and any gaps were stated explicitly.

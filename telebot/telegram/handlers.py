@@ -13,7 +13,6 @@ from telebot.common.messages import (
     TEXT_REANALYSIS_QUEUED,
     TEXT_SETUP_REQUIRED,
     TEXT_UNRECOGNIZED_COMMAND,
-    TEXT_WORKER_PING_QUEUED,
 )
 from telebot.db.repositories.jobs import JobRepository
 from telebot.db.repositories.posts import PostRepository
@@ -73,17 +72,6 @@ class TelegramHandlers:
 
     async def handle_ping(self, message: Message) -> None:
         await message.answer(TEXT_PONG)
-
-    async def handle_pingworker(
-        self,
-        message: Message,
-        actor_user_id: int | None = None,
-    ) -> None:
-        telegram_user_id = self._effective_user_id(message, actor_user_id)
-        async with self.session_factory() as session:
-            await self._queue_worker_ping_job(session, telegram_user_id)
-            await session.commit()
-        await message.answer(TEXT_WORKER_PING_QUEUED)
 
     async def handle_resetschema(self, message: Message) -> None:
         await message.answer(await self.admin_service.reset_schema())
@@ -229,10 +217,3 @@ class TelegramHandlers:
             CommandName.ANALYZE_TODAY.value,
         )
         await jobs.create_job(telegram_user_id, CommandName.ANALYZE_TODAY.value)
-
-    @staticmethod
-    async def _queue_worker_ping_job(
-        session: AsyncSession,
-        telegram_user_id: int,
-    ) -> None:
-        await JobRepository(session).create_job(telegram_user_id, CommandName.PING_WORKER.value)

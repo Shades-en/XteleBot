@@ -23,7 +23,6 @@ JOB_PREFIX = "job_"
 WORKER_POLL_INTERVAL_SECONDS = 5
 PROGRESS_STAGES = {
     "queued": "Job queued",
-    "worker_ping": "Worker is active",
     "collecting": "Collecting tweets and your posts",
     "ranking": "Ranking posts",
     "classifying": "Classifying top posts",
@@ -56,7 +55,8 @@ TWITTER_API_BASE_URL = "https://api.twitterapi.io"
 TWITTER_USER_LOOKUP_PATH = "/twitter/user/info"
 TWITTER_USER_LAST_TWEETS_PATH = "/twitter/user/last_tweets"
 TWITTER_ADVANCED_SEARCH_PATH = "/twitter/tweet/advanced_search"
-TWITTER_REPLIES_PATH = "/twitter/tweet/replies/v2"
+# TWITTER_REPLIES_PATH = "/twitter/tweet/replies/v2"
+TWITTER_REPLIES_PATH = "/twitter/tweet/replies"
 X_STATUS_URL_TEMPLATE = "https://x.com/{author_username}/status/{post_id}"
 TOPIC_QUERY_SEEDS = [
     '("gpt" OR "gemini 2" OR "ai agent" OR "agentic ai" OR "mcp server")',

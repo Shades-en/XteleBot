@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import suppress
 import logging
 
 from aiogram import Bot, Dispatcher
@@ -14,6 +15,7 @@ from telebot.telegram.menus import build_menu_commands
 from telebot.telegram.router import register_handlers
 from telebot.telegram.session import create_proxy_session
 from telebot.twitter.client import TwitterApiClient
+from telebot.worker.service import WorkerService
 from telebot.workflows.creator import CreatorWorkflowService
 from telebot.workflows.admin import AdminWorkflowService
 from telebot.workflows.job_status import JobStatusWorkflowService
@@ -61,6 +63,7 @@ async def run_bot(settings: Settings) -> None:
     session_factory = create_session_factory(engine=engine)
     twitter_client = TwitterApiClient(settings.twitter_api_key)
     agno_factory = AgnoFactory(settings)
+    worker_service = WorkerService(settings, session_factory)
     handlers = TelegramHandlers(
         session_factory=session_factory,
         onboarding_service=OnboardingWorkflowService(session_factory, twitter_client),
@@ -72,6 +75,10 @@ async def run_bot(settings: Settings) -> None:
     )
     bot = create_bot(settings)
     dispatcher = create_dispatcher(handlers)
+    worker_task = asyncio.create_task(
+        worker_service.run_forever(),
+        name="analysis-background-loop",
+    )
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         await bot.set_my_commands(build_menu_commands())
@@ -84,6 +91,9 @@ async def run_bot(settings: Settings) -> None:
         logging.exception("Telegram network error")
         raise
     finally:
+        worker_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker_task
         await twitter_client.close()
         await bot.session.close()
         await engine.dispose()

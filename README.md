@@ -1,12 +1,11 @@
 # X Content Copilot
 
-Telegram bot plus worker for X research and content drafting.
+Telegram bot for X research and content drafting with an in-process background analysis loop.
 
 ## Run Model
 
-Two processes are expected:
-- `python main.py` for the Telegram bot
-- `python worker.py` for background analysis jobs
+One process is expected:
+- `python main.py` for the Telegram bot and background analysis loop
 
 ## Package Layout
 
@@ -18,7 +17,7 @@ Two processes are expected:
 - `telebot/search/` Brave LLM Context search orchestration
 - `telebot/agents/` Agno factory and learning config
 - `telebot/workflows/` onboarding, schedule, analysis, creator flows
-- `telebot/worker/` dedicated async worker loop
+- `telebot/worker/` in-process background analysis loop
 - `.plans/` implementation tracking plans
 
 ## Commands
@@ -26,7 +25,6 @@ Two processes are expected:
 - `/start`
 - `/help`
 - `/ping`
-- `/pingworker`
 - `/currentuser`
 - `/jobstatus`
 - `/reset_schema` (development only)
@@ -44,11 +42,9 @@ Two processes are expected:
 - `/reanalysefortoday`
   - deletes today's analysis rows for the current Telegram user and reruns the workflow from scratch
 - `/postbyinspiration`, `/quote`, `/comment`
-  - acknowledge immediately
-  - send a second progress message while drafting
-  - use today's grounded analysis as source context
-- `/pingworker`
-  - verifies that the background worker is alive by round-tripping a lightweight job through the queue
+  - ask you to choose a grounded source post first
+  - generate a draft after you pick one
+  - treat follow-up text as refinement once a draft exists
 - `/jobstatus`
   - shows the latest job state and stored API cost summary
 
@@ -65,15 +61,13 @@ Key groups:
 
 1. Install `uv`.
 2. Run `uv sync --dev`.
-3. Start the bot:
+3. Start the app:
    - `uv run python main.py`
-4. Start the worker:
-   - `uv run python worker.py`
 
 ## Notes
 
 - Development mode uses the Telegram proxy only from `telebot/telegram/session.py`.
-- The bot process auto-creates schema on startup when `AUTO_CREATE_SCHEMA=true`.
+- The app auto-creates schema on startup when `AUTO_CREATE_SCHEMA=true`.
 - In `BOT_ENV=development`, use `/reset_schema` or `/reanalysefortoday` when you want to clear dev data deliberately.
 - Analysis completion and failure messages include API-only cost reporting for OpenAI, Brave, and TwitterAPI.io.
 - Alembic files are included for migration management.

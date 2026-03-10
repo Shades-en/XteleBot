@@ -1,8 +1,6 @@
 from telebot.common.enums import CommandName
 
 TEXT_PONG = "pong"
-TEXT_WORKER_PING_QUEUED = "Worker ping queued. I will confirm here if the worker is active."
-TEXT_WORKER_PING_OK = "Worker is active."
 TEXT_UNRECOGNIZED_COMMAND = "Unrecognized command. Use /help."
 TEXT_COMMAND_PANEL = "Choose a command:"
 TEXT_HELP_INTRO = (
