@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from telebot.common.constants import JOB_PREFIX
 from telebot.common.enums import JobStatus
+from telebot.costs.schemas import WorkflowCostSummary
 from telebot.db.job_models import WorkflowJob
 
 
@@ -66,8 +67,19 @@ class JobRepository:
         job.finished_at = datetime.utcnow()
         await self.session.flush()
 
-    async def mark_failed(self, job: WorkflowJob, error_message: str) -> None:
+    async def mark_failed(
+        self,
+        job: WorkflowJob,
+        error_message: str,
+        progress_message: str | None = None,
+    ) -> None:
         job.status = JobStatus.FAILED
+        job.progress_message = progress_message or error_message
         job.error_message = error_message
         job.finished_at = datetime.utcnow()
+        await self.session.flush()
+
+    async def apply_cost_summary(self, job: WorkflowJob, summary: WorkflowCostSummary) -> None:
+        job.total_cost_usd = summary.total_cost_usd
+        job.cost_breakdown = summary.model_dump(mode="json", exclude={"total_cost_usd"})
         await self.session.flush()

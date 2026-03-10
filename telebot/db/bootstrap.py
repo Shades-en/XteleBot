@@ -1,3 +1,4 @@
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from telebot.db.base import Base
@@ -9,9 +10,25 @@ async def create_schema(engine: AsyncEngine, reset_schema: bool = False) -> None
         if reset_schema:
             await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
+        await _ensure_workflow_job_cost_columns(connection)
 
 
 async def reset_schema(engine: AsyncEngine) -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
+
+
+async def _ensure_workflow_job_cost_columns(connection) -> None:
+    await connection.execute(
+        text(
+            "ALTER TABLE workflow_jobs "
+            "ADD COLUMN IF NOT EXISTS total_cost_usd NUMERIC(12, 6)"
+        )
+    )
+    await connection.execute(
+        text(
+            "ALTER TABLE workflow_jobs "
+            "ADD COLUMN IF NOT EXISTS cost_breakdown JSON"
+        )
+    )

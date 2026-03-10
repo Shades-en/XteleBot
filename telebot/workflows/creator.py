@@ -1,16 +1,26 @@
+import asyncio
+
+from agno.media import Image
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from telebot.agents.factory import AgnoFactory
-from telebot.common.constants import X_STATUS_URL_TEMPLATE
-from telebot.common.enums import CommandName, SessionStatus
+from telebot.common.constants import ALLOWED_URL_PREFIXES, CREATOR_SOURCE_MEDIA_LIMIT
+from telebot.common.enums import CommandName, PostPurpose, SessionStatus
 from telebot.common.messages import (
     TEXT_ANALYSIS_REQUIRED,
+    TEXT_CREATOR_SOURCE_REQUIRED,
     TEXT_SETUP_REQUIRED,
     TEXT_SOURCE_POST_LINK_TEMPLATE,
 )
 from telebot.db.repositories.posts import PostRepository
 from telebot.db.repositories.users import UserRepository
+from telebot.workflows.creator_prompting import build_creator_prompt
+from telebot.workflows.creator_types import (
+    CreatorContext,
+    CreatorSourcePost,
+    CreatorStyleExample,
+)
 
 
 class CreatorWorkflowService:
@@ -31,23 +41,24 @@ class CreatorWorkflowService:
         telegram_user_id = actor_user_id if actor_user_id is not None else message.from_user.id
         async with self.session_factory() as session:
             users = UserRepository(session)
-            posts = PostRepository(session)
             user = await users.ensure_user(telegram_user_id)
             if not user.x_username or not user.x_id:
                 await message.answer(TEXT_SETUP_REQUIRED)
                 return
-            ranked_posts = await posts.top_safe_ranked_posts(telegram_user_id)
-            if not ranked_posts:
-                await message.answer(TEXT_ANALYSIS_REQUIRED)
+            context = await self._creator_context(telegram_user_id, command)
+            if context is None:
+                await message.answer(self._unavailable_message(command))
                 return
-            status = self._status_for_command(command)
-            await users.set_status(telegram_user_id, status, command.value)
+            await users.set_status(
+                telegram_user_id,
+                self._status_for_command(command),
+                command.value,
+            )
             await session.commit()
             draft = await self._generate_draft(
-                command=command,
                 session_id=user.current_session_id or "",
                 telegram_user_id=telegram_user_id,
-                source_post=ranked_posts[0],
+                context=context,
             )
         await message.answer(draft)
 
@@ -62,49 +73,85 @@ class CreatorWorkflowService:
                 SessionStatus.GENERATING_COMMENT,
             }:
                 return False
-            status_to_command = {
-                SessionStatus.GENERATING_POST: CommandName.POST_BY_INSPIRATION,
-                SessionStatus.GENERATING_QUOTE: CommandName.QUOTE,
-                SessionStatus.GENERATING_COMMENT: CommandName.COMMENT,
-            }
-            command = status_to_command[current_session.status]
+            command = self._command_from_session(current_session)
+            if command is None:
+                return False
+            context = await self._creator_context(
+                message.from_user.id,
+                command,
+                refinement=message.text,
+            )
+            if context is None:
+                await message.answer(self._unavailable_message(command))
+                return True
             draft = await self._generate_draft(
-                command=command,
                 session_id=user.current_session_id or current_session.session_id,
                 telegram_user_id=message.from_user.id,
-                source_post=None,
-                refinement=message.text,
+                context=context,
             )
         await message.answer(draft)
         return True
 
+    async def _creator_context(
+        self,
+        telegram_user_id: int,
+        command: CommandName,
+        refinement: str | None = None,
+    ) -> CreatorContext | None:
+        source_post, style_examples = await asyncio.gather(
+            self._load_creator_source_post(
+                telegram_user_id,
+                self._purpose_for_command(command),
+            ),
+            self._load_creator_style_examples(telegram_user_id),
+        )
+        if source_post is None:
+            return None
+        return CreatorContext(
+            command=command,
+            source_post=self._creator_source_post(source_post),
+            style_examples=[
+                CreatorStyleExample(
+                    post_id=post.post_id,
+                    text=post.text or "",
+                    posted_at=post.posted_at.isoformat() if post.posted_at else None,
+                )
+                for post in style_examples
+            ],
+            refinement=refinement,
+        )
+
+    async def _load_creator_source_post(
+        self,
+        telegram_user_id: int,
+        purpose: PostPurpose,
+    ):
+        async with self.session_factory() as session:
+            return await PostRepository(session).best_researched_post_for_creator(
+                telegram_user_id,
+                purpose,
+            )
+
+    async def _load_creator_style_examples(self, telegram_user_id: int):
+        async with self.session_factory() as session:
+            return await PostRepository(session).recent_own_posts_for_creator_style(
+                telegram_user_id
+            )
+
     async def _generate_draft(
         self,
-        command: CommandName,
         session_id: str,
         telegram_user_id: int,
-        source_post,
-        refinement: str | None = None,
+        context: CreatorContext,
     ) -> str:
-        creator = self.agno_factory.build_creator_agent()
-        source_text = source_post.text if source_post is not None else "Refine the last draft"
-        reply_context = getattr(source_post, "reply_context", []) if source_post is not None else []
-        prompt = (
-            f"Command: {command.value}\n"
-            f"Source post link: {self._source_post_url(source_post) or 'n/a'}\n"
-            f"Source text: {source_text}\n"
-            f"Reply context: {reply_context}\n"
-            f"Research purpose: {getattr(source_post, 'purpose', None) or 'n/a'}\n"
-            f"Research sentiment: {getattr(source_post, 'agent_sentiment', None) or []}\n"
-            f"Research memo for creator: {getattr(source_post, 'agent_comments', None) or 'n/a'}\n"
-            f"Grounded sources: {getattr(source_post, 'related_sources', None) or []}\n"
-            f"Refinement request: {refinement or 'Create a strong first draft.'}\n"
-            "Use the research memo and grounded sources to shape the output. "
-            "Return the draft first, then reference the supporting source post link."
+        response = await self.agno_factory.build_creator_agent().arun(
+            build_creator_prompt(context),
+            user_id=str(telegram_user_id),
+            session_id=session_id,
+            images=self._creator_images(context),
         )
-        response = await creator.arun(prompt, user_id=str(telegram_user_id), session_id=session_id)
         draft = str(response.content)
-        source_url = self._source_post_url(source_post)
+        source_url = context.source_post.source_url
         if source_url is None:
             return draft
         return f"{draft}{TEXT_SOURCE_POST_LINK_TEMPLATE.format(source_url=source_url)}"
@@ -119,14 +166,50 @@ class CreatorWorkflowService:
         return mapping[command]
 
     @staticmethod
-    def _source_post_url(source_post) -> str | None:
-        if source_post is None:
-            return None
-        author_username = getattr(source_post, "author_username", None)
-        post_id = getattr(source_post, "post_id", None)
-        if not author_username or not post_id:
-            return None
-        return X_STATUS_URL_TEMPLATE.format(
-            author_username=author_username,
-            post_id=post_id,
+    def _purpose_for_command(command: CommandName) -> PostPurpose:
+        mapping = {
+            CommandName.POST_BY_INSPIRATION: PostPurpose.POST,
+            CommandName.QUOTE: PostPurpose.QUOTE,
+            CommandName.COMMENT: PostPurpose.COMMENT,
+        }
+        return mapping[command]
+
+    @staticmethod
+    def _creator_source_post(source_post) -> CreatorSourcePost:
+        return CreatorSourcePost(
+            post_id=source_post.post_id,
+            source_url=source_post.post_url,
+            text=source_post.text or "",
+            purpose=source_post.purpose,
+            media_urls=CreatorWorkflowService._valid_media_urls(source_post.media_urls or []),
+            reply_context=list(source_post.reply_context or []),
+            agent_sentiment=list(source_post.agent_sentiment or []),
+            agent_comments=source_post.agent_comments or "",
+            related_sources=list(source_post.related_sources or []),
         )
+
+    @staticmethod
+    def _command_from_session(current_session) -> CommandName | None:
+        last_command = getattr(current_session, "last_command", None)
+        if not last_command:
+            return None
+        try:
+            return CommandName(last_command)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _unavailable_message(command: CommandName) -> str:
+        return TEXT_CREATOR_SOURCE_REQUIRED.get(command, TEXT_ANALYSIS_REQUIRED)
+
+    @staticmethod
+    def _creator_images(context: CreatorContext) -> list[Image]:
+        return [Image(url=url) for url in context.source_post.media_urls]
+
+    @staticmethod
+    def _valid_media_urls(media_urls: list[str]) -> list[str]:
+        return [
+            url
+            for url in media_urls[:CREATOR_SOURCE_MEDIA_LIMIT]
+            if isinstance(url, str) and url.startswith(ALLOWED_URL_PREFIXES)
+        ]

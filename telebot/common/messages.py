@@ -53,6 +53,20 @@ TEXT_ANALYSIS_EMPTY_RESULT = (
 TEXT_ANALYSIS_REQUIRED = (
     "You need today's analysis first. Run /analysetoday before generating content."
 )
+TEXT_CREATOR_SOURCE_REQUIRED = {
+    CommandName.POST_BY_INSPIRATION: (
+        "Today's analysis does not yet have a grounded post candidate. "
+        "Run /analysetoday again later."
+    ),
+    CommandName.QUOTE: (
+        "Today's analysis does not yet have a grounded quote candidate. "
+        "Run /analysetoday again later or use /postbyinspiration."
+    ),
+    CommandName.COMMENT: (
+        "Today's analysis does not yet have a grounded comment candidate. "
+        "Run /analysetoday again later or use /postbyinspiration."
+    ),
+}
 TEXT_JOB_STATUS_TEMPLATE = (
     "Latest job status\n\n"
     "Job id: {job_id}\n"

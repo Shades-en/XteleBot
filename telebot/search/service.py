@@ -4,13 +4,23 @@ from agno.media import Image
 from pydantic import ValidationError
 
 from telebot.common.constants import WEB_SEARCH_WORKFLOW_FAILED_REASON
+from telebot.costs.tracker import WorkflowCostTracker
 from telebot.search.schemas import WebSearchWorkflowResult
 from telebot.search.workflow import build_web_search_workflow
 
 
 class WebSearchWorkflowService:
-    def __init__(self, settings, agno_factory) -> None:
-        self.workflow = build_web_search_workflow(settings, agno_factory)
+    def __init__(
+        self,
+        settings,
+        agno_factory,
+        cost_tracker: WorkflowCostTracker | None = None,
+    ) -> None:
+        self.workflow = build_web_search_workflow(
+            settings,
+            agno_factory,
+            cost_tracker=cost_tracker,
+        )
 
     async def run(
         self,

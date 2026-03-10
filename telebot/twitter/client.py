@@ -11,12 +11,14 @@ from telebot.common.constants import (
     TWITTER_USER_LAST_TWEETS_PATH,
     TWITTER_USER_LOOKUP_PATH,
 )
+from telebot.costs.tracker import WorkflowCostTracker
 from telebot.twitter.schemas import AdvancedSearchTweet, TwitterUserResult
 
 
 class TwitterApiClient:
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, cost_tracker: WorkflowCostTracker | None = None) -> None:
         self.api_key = api_key
+        self.cost_tracker = cost_tracker
         self.client = httpx.AsyncClient(
             base_url=TWITTER_API_BASE_URL,
             headers={"X-API-Key": api_key},
@@ -32,7 +34,9 @@ class TwitterApiClient:
         payload = response.json()
         data = payload.get("data") or payload.get("user") or payload
         if not data or not data.get("id"):
+            self._record_cost("user_lookup", 0)
             return None
+        self._record_cost("user_lookup", 1)
         return TwitterUserResult(**data, raw=data)
 
     async def advanced_search(self, query: str) -> list[AdvancedSearchTweet]:
@@ -42,7 +46,9 @@ class TwitterApiClient:
         )
         response.raise_for_status()
         payload = response.json()
-        return self._parse_tweets(payload)
+        tweets = self._parse_tweets(payload)
+        self._record_cost("advanced_search", len(tweets))
+        return tweets
 
     async def get_user_last_tweets(self, user_id: str) -> list[AdvancedSearchTweet]:
         response = await self.client.get(
@@ -51,7 +57,9 @@ class TwitterApiClient:
         )
         response.raise_for_status()
         payload = response.json()
-        return self._parse_tweets(payload, ("data.tweets", "tweets", "data"))
+        tweets = self._parse_tweets(payload, ("data.tweets", "tweets", "data"))
+        self._record_cost("user_last_tweets", len(tweets))
+        return tweets
 
     async def get_replies(self, post_id: str) -> list[AdvancedSearchTweet]:
         response = await self.client.get(
@@ -60,7 +68,9 @@ class TwitterApiClient:
         )
         response.raise_for_status()
         payload = response.json()
-        return self._parse_tweets(payload, ("replies", "tweets", "data"))
+        tweets = self._parse_tweets(payload, ("replies", "tweets", "data"))
+        self._record_cost("replies", len(tweets))
+        return tweets
 
     @staticmethod
     def _parse_tweets(
@@ -91,3 +101,8 @@ class TwitterApiClient:
                 return None
             value = value.get(part)
         return value
+
+    def _record_cost(self, endpoint: str, returned_count: int) -> None:
+        if self.cost_tracker is None:
+            return
+        self.cost_tracker.record_twitter_call(endpoint, returned_count)

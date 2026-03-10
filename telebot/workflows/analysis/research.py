@@ -34,7 +34,6 @@ class ResearchTweetsExecutor:
     ) -> None:
         self.session_factory = session_factory
         self.agno_factory = agno_factory
-        self.search_service = WebSearchWorkflowService(agno_factory.settings, agno_factory)
 
     async def __call__(self, step_input: StepInput) -> StepOutput:
         context: AnalysisContext = step_input.additional_data["context"]
@@ -48,8 +47,14 @@ class ResearchTweetsExecutor:
                 limit=ANALYSIS_RESEARCH_TARGET_LIMIT,
             )
             tweet_contexts = [self._tweet_context(post) for post in posts]
+            search_service = WebSearchWorkflowService(
+                self.agno_factory.settings,
+                self.agno_factory,
+                cost_tracker=context.cost_tracker,
+            )
             await report_progress(context, "retrieve_research")
             web_results = await self._run_web_searches_in_parallel(
+                search_service,
                 tweet_contexts,
                 context.telegram_user_id,
             )
@@ -59,6 +64,7 @@ class ResearchTweetsExecutor:
                 tweet_contexts,
                 web_results,
                 context.telegram_user_id,
+                context,
             )
             rebalanced_results = self._rebalance_purposes(tweet_contexts, results)
             await repo.bulk_update_research_fields(
@@ -79,23 +85,28 @@ class ResearchTweetsExecutor:
 
     async def _run_web_searches_in_parallel(
         self,
+        search_service: WebSearchWorkflowService,
         tweet_contexts: list[ResearchTweetContext],
         telegram_user_id: int,
     ) -> list[WebSearchWorkflowResult]:
         semaphore = asyncio.Semaphore(RESEARCH_TWEET_WORKFLOW_CONCURRENCY)
         return await asyncio.gather(
-            *(self._run_web_search(item, telegram_user_id, semaphore) for item in tweet_contexts)
+            *(
+                self._run_web_search(search_service, item, telegram_user_id, semaphore)
+                for item in tweet_contexts
+            )
         )
 
     async def _run_web_search(
         self,
+        search_service: WebSearchWorkflowService,
         tweet_context: ResearchTweetContext,
         telegram_user_id: int,
         semaphore: asyncio.Semaphore,
     ) -> WebSearchWorkflowResult:
         async with semaphore:
             return await run_tweet_web_search(
-                self.search_service,
+                search_service,
                 tweet_context,
                 str(telegram_user_id),
             )
@@ -105,11 +116,18 @@ class ResearchTweetsExecutor:
         tweet_contexts: list[ResearchTweetContext],
         web_results: list[WebSearchWorkflowResult],
         telegram_user_id: int,
+        context: AnalysisContext,
     ) -> list[ResearchTweetSynthesisResult]:
         semaphore = asyncio.Semaphore(RESEARCH_TWEET_WORKFLOW_CONCURRENCY)
         return await asyncio.gather(
             *(
-                self._run_synthesis(tweet_context, web_result, telegram_user_id, semaphore)
+                self._run_synthesis(
+                    tweet_context,
+                    web_result,
+                    telegram_user_id,
+                    semaphore,
+                    context,
+                )
                 for tweet_context, web_result in zip(tweet_contexts, web_results, strict=True)
             )
         )
@@ -120,6 +138,7 @@ class ResearchTweetsExecutor:
         web_result: WebSearchWorkflowResult,
         telegram_user_id: int,
         semaphore: asyncio.Semaphore,
+        context: AnalysisContext,
     ) -> ResearchTweetSynthesisResult:
         async with semaphore:
             return await synthesize_tweet_research(
@@ -127,6 +146,7 @@ class ResearchTweetsExecutor:
                 tweet_context,
                 web_result,
                 str(telegram_user_id),
+                cost_tracker=context.cost_tracker,
             )
 
     @staticmethod

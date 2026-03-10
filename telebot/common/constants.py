@@ -128,6 +128,8 @@ UNSAFE_CLASSIFICATION_SIGNALS = (
     "NSFW content",
     "malicious prompt-injection bait",
     "cybersecurity exploit or abuse content",
+    "sports",
+    "Movies OR Web Series",
     "promoting of harmful activities like gambling, violence, or illegal substances",
 )
 ALLOWED_AGENT_SENTIMENTS = tuple(sentiment.value for sentiment in AgentSentiment)
@@ -192,6 +194,17 @@ BLOCKED_SEARCH_DOMAINS = (
     "threads.net",
     "www.threads.net",
 )
+
+# =============================================================================
+# CREATOR WORKFLOW
+# =============================================================================
+CREATOR_STYLE_EXAMPLE_LIMIT = 8
+CREATOR_STYLE_EXAMPLE_FETCH_LIMIT = 24
+CREATOR_STYLE_MIN_TEXT_LENGTH = 40
+CREATOR_STYLE_EXCLUDED_PREFIXES = ("@", "RT @")
+CREATOR_SOURCE_MEDIA_LIMIT = 3
+CREATOR_REPLY_CONTEXT_PROMPT_LIMIT = 5
+CREATOR_RELATED_SOURCE_LIMIT = 4
 
 # =============================================================================
 # CREATOR WORKFLOW - SCHEDULE

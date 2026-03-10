@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from telebot.common.messages import TEXT_JOB_STATUS_REQUIRED, TEXT_JOB_STATUS_TEMPLATE
+from telebot.costs.formatting import format_job_cost_section
 from telebot.db.repositories.jobs import JobRepository
 
 
@@ -20,4 +21,4 @@ class JobStatusWorkflowService:
             stage=job.progress_stage or "not set",
             progress=job.progress_message or "not set",
             error=job.error_message or "none",
-        )
+        ) + "\n\n" + format_job_cost_section(job.cost_breakdown, job.total_cost_usd)

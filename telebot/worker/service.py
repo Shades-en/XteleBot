@@ -16,6 +16,8 @@ from telebot.common.messages import (
     TEXT_WORKER_PING_OK,
 )
 from telebot.config import Settings
+from telebot.costs.formatting import format_cost_summary
+from telebot.costs.tracker import WorkflowCostTracker
 from telebot.db.repositories.jobs import JobRepository
 from telebot.db.repositories.posts import PostRepository
 from telebot.db.repositories.users import UserRepository
@@ -30,7 +32,6 @@ class WorkerService:
     def __init__(self, settings: Settings, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self.settings = settings
         self.session_factory = session_factory
-        self.twitter_client = TwitterApiClient(settings.twitter_api_key)
         self.agno_factory = AgnoFactory(settings)
 
     async def run_forever(self) -> None:
@@ -74,7 +75,9 @@ class WorkerService:
 
         progress_notifier = self._build_progress_notifier(job_id, job.telegram_user_id)
         await progress_notifier("collecting", PROGRESS_STAGES["collecting"])
-        workflow = build_analysis_workflow(self.session_factory, self.twitter_client, self.agno_factory)
+        cost_tracker = WorkflowCostTracker()
+        twitter_client = TwitterApiClient(self.settings.twitter_api_key, cost_tracker=cost_tracker)
+        workflow = build_analysis_workflow(self.session_factory, twitter_client, self.agno_factory)
         try:
             await workflow.arun(
                 input="Analyze today's content landscape",
@@ -84,9 +87,12 @@ class WorkerService:
                         x_username=user.x_username,
                         x_id=user.x_id or "",
                         progress_callback=progress_notifier,
+                        cost_tracker=cost_tracker,
                     )
                 },
             )
+            summary = cost_tracker.summary()
+            completion_message = f"{PROGRESS_STAGES['complete']}\n\n{format_cost_summary(summary)}"
             async with self.session_factory() as session:
                 jobs = JobRepository(session)
                 users = UserRepository(session)
@@ -95,34 +101,57 @@ class WorkerService:
                 if job is None:
                     return
                 if not await posts.has_analysis_for_today(job.telegram_user_id):
-                    await jobs.mark_failed(job, TEXT_ANALYSIS_EMPTY_RESULT)
+                    failure_summary = cost_tracker.summary()
+                    failure_message = (
+                        f"{TEXT_ANALYSIS_EMPTY_RESULT}\n\n"
+                        f"{format_cost_summary(failure_summary, partial=True)}"
+                    )
+                    await jobs.apply_cost_summary(job, failure_summary)
+                    await jobs.mark_failed(
+                        job,
+                        TEXT_ANALYSIS_EMPTY_RESULT,
+                        progress_message=failure_message,
+                    )
                     await users.set_status(job.telegram_user_id, SessionStatus.IDLE)
                     await session.commit()
                     await self._send_progress(
                         job.telegram_user_id,
                         JobStatus.FAILED.value,
-                        TEXT_ANALYSIS_EMPTY_RESULT,
+                        failure_message,
                     )
                     return
-                await jobs.mark_completed(job, PROGRESS_STAGES["complete"])
+                await jobs.apply_cost_summary(job, summary)
+                await jobs.mark_completed(job, completion_message)
                 await users.set_status(job.telegram_user_id, SessionStatus.IDLE)
                 await session.commit()
-            await self._send_progress(job.telegram_user_id, "complete", PROGRESS_STAGES["complete"])
+            await self._send_progress(job.telegram_user_id, "complete", completion_message)
         except Exception as exc:
+            failure_summary = cost_tracker.summary()
+            public_error = self._public_error_message(exc)
+            failure_message = (
+                f"{public_error}\n\n{format_cost_summary(failure_summary, partial=True)}"
+            )
             async with self.session_factory() as session:
                 jobs = JobRepository(session)
                 users = UserRepository(session)
                 job = await jobs.get_job(job_id)
                 if job is None:
                     return
-                await jobs.mark_failed(job, self._public_error_message(exc))
+                await jobs.apply_cost_summary(job, failure_summary)
+                await jobs.mark_failed(
+                    job,
+                    public_error,
+                    progress_message=failure_message,
+                )
                 await users.set_status(job.telegram_user_id, SessionStatus.IDLE)
                 await session.commit()
             await self._send_progress(
                 job.telegram_user_id,
                 JobStatus.FAILED.value,
-                self._public_error_message(exc),
+                failure_message,
             )
+        finally:
+            await twitter_client.close()
 
     def _build_progress_notifier(
         self,

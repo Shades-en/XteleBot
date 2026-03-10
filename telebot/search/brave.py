@@ -15,12 +15,14 @@ from telebot.common.constants import (
     HTTP_TIMEOUT_SECONDS,
     PDF_URL_SUFFIX,
 )
+from telebot.costs.tracker import WorkflowCostTracker
 from telebot.search.schemas import SearchCandidate, SearchTask
 
 
 class BraveLlmContextClient:
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, cost_tracker: WorkflowCostTracker | None = None) -> None:
         self.api_key = api_key
+        self.cost_tracker = cost_tracker
 
     async def search(self, task: SearchTask) -> list[SearchCandidate]:
         payload = await self._request(task.query)
@@ -38,6 +40,8 @@ class BraveLlmContextClient:
             )
             response.raise_for_status()
         loaded = response.json()
+        if self.cost_tracker is not None:
+            self.cost_tracker.record_brave_request()
         return loaded if isinstance(loaded, dict) else {}
 
     def _parse_candidates(self, payload: dict, query: str) -> list[SearchCandidate]:

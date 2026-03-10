@@ -41,6 +41,8 @@ class AgnoFactory:
             db=self.db,
             learning=self._learning(),
             instructions=[CREATOR_SYSTEM_PROMPT],
+            add_history_to_context=True,
+            num_history_runs=4,
             markdown=True,
             tool_call_limit=AGNO_TOOL_CALL_LIMIT,
         )

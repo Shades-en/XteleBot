@@ -6,15 +6,16 @@ from telebot.common.constants import (
     BLOCKED_SEARCH_DOMAINS,
     WEB_RESEARCH_FETCH_CONCURRENCY,
 )
+from telebot.costs.tracker import WorkflowCostTracker
 from telebot.search.brave import BraveLlmContextClient
 from telebot.search.rerank import EvidenceReranker
 from telebot.search.schemas import EvidenceChunk, PostResearchPlan, SearchCandidate, SearchTask
 
 
 class ResearchRetrievalService:
-    def __init__(self, settings) -> None:
-        self.brave = BraveLlmContextClient(settings.brave_search_api_key)
-        self.reranker = EvidenceReranker(settings.openai_api_key)
+    def __init__(self, settings, cost_tracker: WorkflowCostTracker | None = None) -> None:
+        self.brave = BraveLlmContextClient(settings.brave_search_api_key, cost_tracker=cost_tracker)
+        self.reranker = EvidenceReranker(settings.openai_api_key, cost_tracker=cost_tracker)
 
     async def retrieve(
         self,

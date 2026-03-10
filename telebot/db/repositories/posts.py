@@ -5,7 +5,15 @@ from sqlalchemy import Select, delete, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from telebot.common.constants import ANALYSIS_REPLY_TARGET_LIMIT, ANALYSIS_TOP_RANKED_LIMIT
+from telebot.common.constants import (
+    ANALYSIS_REPLY_TARGET_LIMIT,
+    ANALYSIS_TOP_RANKED_LIMIT,
+    CREATOR_STYLE_EXAMPLE_FETCH_LIMIT,
+    CREATOR_STYLE_EXAMPLE_LIMIT,
+    CREATOR_STYLE_EXCLUDED_PREFIXES,
+    CREATOR_STYLE_MIN_TEXT_LENGTH,
+)
+from telebot.common.enums import PostPurpose
 from telebot.db.social_models import Post
 
 class PostRepository:
@@ -153,6 +161,30 @@ class PostRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def best_researched_post_for_creator(
+        self,
+        telegram_user_id: int,
+        purpose: PostPurpose,
+    ) -> Post | None:
+        result = await self.session.execute(
+            self._creator_source_post_stmt(telegram_user_id, purpose)
+        )
+        return result.scalar_one_or_none()
+
+    async def recent_own_posts_for_creator_style(
+        self,
+        telegram_user_id: int,
+        limit: int = CREATOR_STYLE_EXAMPLE_LIMIT,
+    ) -> list[Post]:
+        result = await self.session.execute(
+            self._creator_style_examples_stmt(
+                telegram_user_id,
+                CREATOR_STYLE_EXAMPLE_FETCH_LIMIT,
+            )
+        )
+        posts = result.scalars().all()
+        return [post for post in posts if self._is_usable_style_example(post)][:limit]
+
     async def set_rank(self, post_id: str, rank_position: int, rating_score: Decimal) -> None:
         post = await self.get_post(post_id)
         if post is None:
@@ -229,6 +261,45 @@ class PostRepository:
             .limit(1)
             .scalar_subquery()
         )
+
+    @staticmethod
+    def _creator_source_post_stmt(
+        telegram_user_id: int,
+        purpose: PostPurpose,
+    ) -> Select[tuple[Post]]:
+        return (
+            select(Post)
+            .where(Post.analysed_for_user_id == telegram_user_id)
+            .where(Post.date_of_analysis == date.today())
+            .where(Post.own_posts.is_(False))
+            .where(Post.rank_position.is_not(None))
+            .where(Post.unsafe.is_(False))
+            .where(Post.purpose == purpose.value)
+            .order_by(Post.rank_position.asc())
+            .limit(1)
+        )
+
+    @staticmethod
+    def _creator_style_examples_stmt(
+        telegram_user_id: int,
+        limit: int,
+    ) -> Select[tuple[Post]]:
+        return (
+            select(Post)
+            .where(Post.analysed_for_user_id == telegram_user_id)
+            .where(Post.own_posts.is_(True))
+            .where(Post.posted_at.is_not(None))
+            .where(Post.text.is_not(None))
+            .order_by(Post.posted_at.desc())
+            .limit(limit)
+        )
+
+    @staticmethod
+    def _is_usable_style_example(post: Post) -> bool:
+        text = (post.text or "").strip()
+        if len(text) < CREATOR_STYLE_MIN_TEXT_LENGTH:
+            return False
+        return not text.startswith(CREATOR_STYLE_EXCLUDED_PREFIXES)
 
     @staticmethod
     def _merge_source_queries(

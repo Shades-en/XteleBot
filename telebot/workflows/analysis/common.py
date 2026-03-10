@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, Awaitable, Callable
 
 from telebot.common.constants import PROGRESS_STAGES
+from telebot.costs.tracker import WorkflowCostTracker
 
 ProgressCallback = Callable[[str, str], Awaitable[None]]
 
@@ -13,6 +14,7 @@ class AnalysisContext:
     x_username: str
     x_id: str
     progress_callback: ProgressCallback | None = None
+    cost_tracker: WorkflowCostTracker | None = None
 
 
 @dataclass(frozen=True)

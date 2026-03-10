@@ -4,6 +4,7 @@ from agno.workflow.step import Step, StepInput, StepOutput
 from agno.workflow.workflow import Workflow
 
 from telebot.common.constants import WEB_SEARCH_RETRIEVAL_FAILED_REASON
+from telebot.costs.tracker import WorkflowCostTracker
 from telebot.search.planner import WebSearchPlannerService
 from telebot.search.retrieval import ResearchRetrievalService
 from telebot.search.schemas import PostResearchPlan, WebSearchWorkflowResult
@@ -12,8 +13,8 @@ PLAN_WEB_SEARCH_STEP_NAME = "Plan Web Search"
 
 
 class PlanWebSearchExecutor:
-    def __init__(self, agno_factory) -> None:
-        self.planner = WebSearchPlannerService(agno_factory)
+    def __init__(self, agno_factory, cost_tracker: WorkflowCostTracker | None = None) -> None:
+        self.planner = WebSearchPlannerService(agno_factory, cost_tracker=cost_tracker)
 
     async def __call__(self, step_input: StepInput) -> StepOutput:
         search_input = step_input.get_input_as_string() or ""
@@ -24,8 +25,8 @@ class PlanWebSearchExecutor:
 
 
 class RetrieveWebEvidenceExecutor:
-    def __init__(self, settings) -> None:
-        self.retrieval = ResearchRetrievalService(settings)
+    def __init__(self, settings, cost_tracker: WorkflowCostTracker | None = None) -> None:
+        self.retrieval = ResearchRetrievalService(settings, cost_tracker=cost_tracker)
 
     async def __call__(self, step_input: StepInput) -> StepOutput:
         search_input = step_input.get_input_as_string() or ""
@@ -46,11 +47,21 @@ class RetrieveWebEvidenceExecutor:
         return StepOutput(content=result.model_dump(mode="json"))
 
 
-def build_web_search_workflow(settings, agno_factory) -> Workflow:
+def build_web_search_workflow(
+    settings,
+    agno_factory,
+    cost_tracker: WorkflowCostTracker | None = None,
+) -> Workflow:
     return Workflow(
         name="Reusable Web Search Workflow",
         steps=[
-            Step(name=PLAN_WEB_SEARCH_STEP_NAME, executor=PlanWebSearchExecutor(agno_factory)),
-            Step(name="Retrieve Web Evidence", executor=RetrieveWebEvidenceExecutor(settings)),
+            Step(
+                name=PLAN_WEB_SEARCH_STEP_NAME,
+                executor=PlanWebSearchExecutor(agno_factory, cost_tracker=cost_tracker),
+            ),
+            Step(
+                name="Retrieve Web Evidence",
+                executor=RetrieveWebEvidenceExecutor(settings, cost_tracker=cost_tracker),
+            ),
         ],
     )

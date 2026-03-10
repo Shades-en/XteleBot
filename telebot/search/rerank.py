@@ -11,14 +11,17 @@ from telebot.common.constants import (
     WEB_RESEARCH_TITLE_PREFILTER_MIN_KEEP,
     WEB_RESEARCH_TITLE_SIMILARITY_FLOOR,
 )
+from telebot.costs.openai import record_embedding_response
+from telebot.costs.tracker import WorkflowCostTracker
 from telebot.search.schemas import EvidenceChunk, SearchCandidate
 
 EMBEDDING_SEMAPHORE = asyncio.Semaphore(EMBEDDING_CONCURRENCY)
 
 
 class EvidenceReranker:
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, cost_tracker: WorkflowCostTracker | None = None) -> None:
         self.client = AsyncOpenAI(api_key=api_key)
+        self.cost_tracker = cost_tracker
         self.encoding = tiktoken.get_encoding("cl100k_base")
 
     async def rank_candidates(
@@ -161,6 +164,7 @@ class EvidenceReranker:
                 model=OPENAI_EMBEDDING_MODEL,
                 input=texts,
             )
+        record_embedding_response(self.cost_tracker, response)
         return [item.embedding for item in response.data]
 
     @staticmethod

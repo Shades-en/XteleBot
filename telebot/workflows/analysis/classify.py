@@ -10,6 +10,7 @@ from telebot.common.constants import (
     CLASSIFICATION_TARGET_LIMIT,
 )
 from telebot.common.enums import PostCategory
+from telebot.costs.openai import record_run_output
 from telebot.common.messages import TEXT_ANALYSIS_EMPTY_RESULT
 from telebot.db.repositories.posts import PostRepository
 from telebot.workflows.analysis.common import AnalysisContext, report_progress
@@ -39,7 +40,7 @@ class ClassifyTopPostsExecutor:
             )
             if not posts:
                 raise RuntimeError(TEXT_ANALYSIS_EMPTY_RESULT)
-            batch = await self._classify(posts)
+            batch = await self._classify(posts, context)
             for item in batch.classifications:
                 await repo.apply_classification(
                     item.post_id,
@@ -52,10 +53,15 @@ class ClassifyTopPostsExecutor:
             await session.commit()
         return StepOutput(content="classifying")
 
-    async def _classify(self, posts: list[object]) -> PostClassificationBatch:
+    async def _classify(
+        self,
+        posts: list[object],
+        context: AnalysisContext,
+    ) -> PostClassificationBatch:
         classifier = self.agno_factory.build_post_classifier()
         prompt, images = self._build_prompt_and_images(posts)
         response = await classifier.arun(prompt, images=images)
+        record_run_output(context.cost_tracker, response)
         return PostClassificationBatch.model_validate(self._content_of(response))
 
     @staticmethod
