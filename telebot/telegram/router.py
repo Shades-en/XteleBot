@@ -56,6 +56,9 @@ async def handle_callback(callback: CallbackQuery, handlers: TelegramHandlers) -
     if command is CommandName.JOB_STATUS:
         await handlers.handle_jobstatus(callback.message, actor_user_id=actor_user_id)
         return
+    if command is CommandName.COSTS:
+        await handlers.handle_costs(callback.message, actor_user_id=actor_user_id)
+        return
     if command is CommandName.ANALYZE_TODAY:
         await handlers.handle_analysetoday(callback.message, actor_user_id=actor_user_id)
         return
@@ -99,6 +102,7 @@ def register_handlers(dispatcher: Dispatcher, handlers: TelegramHandlers) -> Non
         handlers.handle_jobstatus,
         Command(CommandName.JOB_STATUS.value),
     )
+    dispatcher.message.register(handlers.handle_costs, Command(CommandName.COSTS.value))
     dispatcher.message.register(handlers.handle_schedule, Command(CommandName.SCHEDULE.value))
     dispatcher.message.register(
         handlers.handle_analysetoday,

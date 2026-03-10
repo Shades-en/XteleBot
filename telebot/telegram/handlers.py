@@ -20,6 +20,7 @@ from telebot.db.repositories.users import UserRepository
 from telebot.telegram.menus import build_inline_menu
 from telebot.workflows.creator import CreatorWorkflowService
 from telebot.workflows.admin import AdminWorkflowService
+from telebot.workflows.cost_summary import CostSummaryWorkflowService
 from telebot.workflows.job_status import JobStatusWorkflowService
 from telebot.workflows.onboarding import OnboardingWorkflowService
 from telebot.workflows.schedule import ScheduleWorkflowService
@@ -34,6 +35,7 @@ class TelegramHandlers:
         creator_service: CreatorWorkflowService,
         schedule_service: ScheduleWorkflowService,
         user_details_service: UserDetailsWorkflowService,
+        cost_summary_service: CostSummaryWorkflowService,
         job_status_service: JobStatusWorkflowService,
         admin_service: AdminWorkflowService,
     ) -> None:
@@ -42,6 +44,7 @@ class TelegramHandlers:
         self.creator_service = creator_service
         self.schedule_service = schedule_service
         self.user_details_service = user_details_service
+        self.cost_summary_service = cost_summary_service
         self.job_status_service = job_status_service
         self.admin_service = admin_service
 
@@ -110,6 +113,17 @@ class TelegramHandlers:
     ) -> None:
         await message.answer(
             await self.job_status_service.render_latest_job(
+                self._effective_user_id(message, actor_user_id)
+            )
+        )
+
+    async def handle_costs(
+        self,
+        message: Message,
+        actor_user_id: int | None = None,
+    ) -> None:
+        await message.answer(
+            await self.cost_summary_service.render_cost_summary(
                 self._effective_user_id(message, actor_user_id)
             )
         )

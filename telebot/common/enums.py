@@ -26,6 +26,7 @@ class CommandName(str, Enum):
     START = "start"
     HELP = "help"
     PING = "ping"
+    COSTS = "costs"
     CURRENT_USER = "currentuser"
     JOB_STATUS = "jobstatus"
     RESET_SCHEMA = "reset_schema"

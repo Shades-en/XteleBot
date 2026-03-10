@@ -17,6 +17,13 @@ TEXT_X_USERNAME_CONFIRMED = (
 TEXT_SETUP_REQUIRED = (
     "You need to connect your X username first. Use /start and send your @username."
 )
+TEXT_COST_SUMMARY_TEMPLATE = (
+    "Workflow cost summary\n\n"
+    "{today_section}\n\n"
+    "{month_section}\n\n"
+    "{year_section}\n\n"
+    "{overall_section}"
+)
 TEXT_CURRENT_USER_REQUIRED = (
     "No current user details are stored yet. Use /start to set up your account."
 )
@@ -108,6 +115,13 @@ TEXT_JOB_STATUS_TEMPLATE = (
     "Stage: {stage}\n"
     "Progress: {progress}\n"
     "Error: {error}"
+)
+TEXT_COST_PERIOD_TEMPLATE = (
+    "{label}\n"
+    "Combined total: ${total_cost_usd:.6f}\n"
+    "OpenAI: ${openai_cost_usd:.6f}\n"
+    "TwitterAPI: ${twitter_cost_usd:.6f}\n"
+    "Search: ${search_cost_usd:.6f}"
 )
 TEXT_SCHEDULE_TEMPLATE = "Weekly schedule\n\n{lines}\n\nToday's action: {today_action}"
 TEXT_GENERIC_WORKFLOW_FAILURE = "The workflow failed. Check logs and try again."

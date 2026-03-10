@@ -18,6 +18,7 @@ from telebot.twitter.client import TwitterApiClient
 from telebot.worker.service import WorkerService
 from telebot.workflows.creator import CreatorWorkflowService
 from telebot.workflows.admin import AdminWorkflowService
+from telebot.workflows.cost_summary import CostSummaryWorkflowService
 from telebot.workflows.job_status import JobStatusWorkflowService
 from telebot.workflows.onboarding import OnboardingWorkflowService
 from telebot.workflows.schedule import ScheduleWorkflowService
@@ -70,6 +71,7 @@ async def run_bot(settings: Settings) -> None:
         creator_service=CreatorWorkflowService(session_factory, agno_factory),
         schedule_service=ScheduleWorkflowService(session_factory),
         user_details_service=UserDetailsWorkflowService(session_factory),
+        cost_summary_service=CostSummaryWorkflowService(session_factory),
         job_status_service=JobStatusWorkflowService(session_factory),
         admin_service=AdminWorkflowService(settings, engine),
     )

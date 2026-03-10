@@ -48,6 +48,15 @@ class JobRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_costed_jobs_for_user(self, telegram_user_id: int) -> list[WorkflowJob]:
+        result = await self.session.execute(
+            select(WorkflowJob)
+            .where(WorkflowJob.telegram_user_id == telegram_user_id)
+            .where(WorkflowJob.cost_breakdown.is_not(None))
+            .order_by(WorkflowJob.created_at.asc())
+        )
+        return list(result.scalars().all())
+
     async def mark_running(self, job: WorkflowJob, stage: str, message: str) -> None:
         job.status = JobStatus.RUNNING
         job.progress_stage = stage
