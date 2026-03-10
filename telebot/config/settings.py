@@ -16,7 +16,7 @@ POSTGRES_PORT_ENV_VAR = "POSTGRES_PORT"
 POSTGRES_DBNAME_ENV_VAR = "POSTGRES_DBNAME"
 POSTGRES_SSLMODE_ENV_VAR = "POSTGRES_SSLMODE"
 TWITTER_API_KEY_ENV_VAR = "TWITTER_API_KEY"
-SERPER_API_KEY_ENV_VAR = "SERPER_API_KEY"
+BRAVE_SEARCH_API_KEY_ENV_VAR = "BRAVE_SEARCH_API_KEY"
 OPENAI_API_KEY_ENV_VAR = "OPENAI_API_KEY"
 WORKER_CHAT_ID_ENV_VAR = "WORKER_CHAT_ID"
 AUTO_CREATE_SCHEMA_ENV_VAR = "AUTO_CREATE_SCHEMA"
@@ -32,7 +32,7 @@ class Settings:
     postgres_url: str
     agno_postgres_url: str
     twitter_api_key: str
-    serper_api_key: str
+    brave_search_api_key: str
     openai_api_key: str
     auto_create_schema: bool
 
@@ -88,7 +88,7 @@ def load_settings() -> Settings:
         postgres_url=_build_postgres_url("psycopg_async"),
         agno_postgres_url=_build_postgres_url("psycopg_async"),
         twitter_api_key=_required(TWITTER_API_KEY_ENV_VAR),
-        serper_api_key=_required(SERPER_API_KEY_ENV_VAR),
+        brave_search_api_key=_required(BRAVE_SEARCH_API_KEY_ENV_VAR),
         openai_api_key=_required(OPENAI_API_KEY_ENV_VAR),
         auto_create_schema=_optional(AUTO_CREATE_SCHEMA_ENV_VAR, "true").lower()
         == "true",

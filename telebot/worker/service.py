@@ -7,12 +7,13 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from telebot.agents.factory import AgnoFactory
 from telebot.common.constants import PROGRESS_STAGES, WORKER_POLL_INTERVAL_SECONDS
-from telebot.common.enums import JobStatus, SessionStatus
+from telebot.common.enums import CommandName, JobStatus, SessionStatus
 from telebot.common.messages import (
     TEXT_ANALYSIS_EMPTY_RESULT,
     TEXT_ANALYSIS_RATE_LIMITED,
     TEXT_GENERIC_WORKFLOW_FAILURE,
     TEXT_JOB_PROGRESS_TEMPLATE,
+    TEXT_WORKER_PING_OK,
 )
 from telebot.config import Settings
 from telebot.db.repositories.jobs import JobRepository
@@ -52,6 +53,16 @@ class WorkerService:
             users = UserRepository(session)
             job = await jobs.get_job(job_id)
             if job is None:
+                return
+            if job.command == CommandName.PING_WORKER.value:
+                await jobs.mark_running(job, "worker_ping", PROGRESS_STAGES["worker_ping"])
+                await jobs.mark_completed(job, TEXT_WORKER_PING_OK)
+                await session.commit()
+                await self._send_progress(
+                    job.telegram_user_id,
+                    "worker_ping",
+                    TEXT_WORKER_PING_OK,
+                )
                 return
             await jobs.mark_running(job, "collecting", PROGRESS_STAGES["collecting"])
             user = await users.ensure_user(job.telegram_user_id)

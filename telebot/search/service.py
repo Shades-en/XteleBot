@@ -1,5 +1,9 @@
-from agno.media import Image
+import logging
 
+from agno.media import Image
+from pydantic import ValidationError
+
+from telebot.common.constants import WEB_SEARCH_WORKFLOW_FAILED_REASON
 from telebot.search.schemas import WebSearchWorkflowResult
 from telebot.search.workflow import build_web_search_workflow
 
@@ -20,4 +24,8 @@ class WebSearchWorkflowService:
             user_id=user_id,
         )
         content = getattr(result, "content", result)
-        return WebSearchWorkflowResult.model_validate(content)
+        try:
+            return WebSearchWorkflowResult.model_validate(content)
+        except (ValidationError, TypeError, ValueError) as exc:
+            logging.warning("Web search workflow returned invalid content: %s", exc)
+            return WebSearchWorkflowResult.fallback(WEB_SEARCH_WORKFLOW_FAILED_REASON)

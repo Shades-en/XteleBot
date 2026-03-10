@@ -15,7 +15,7 @@ Two processes are expected:
 - `telebot/db/` models, repositories, schema bootstrap
 - `telebot/telegram/` bot handlers, menu, proxy session
 - `telebot/twitter/` twitterapi.io client, schemas, queries
-- `telebot/search/` bounded search orchestration
+- `telebot/search/` Brave LLM Context search orchestration
 - `telebot/agents/` Agno factory and learning config
 - `telebot/workflows/` onboarding, schedule, analysis, creator flows
 - `telebot/worker/` dedicated async worker loop
@@ -42,7 +42,7 @@ Use `.env` for local secrets and `.env.example` as the template.
 Key groups:
 - Telegram: `TELEGRAM_BOT_TOKEN`, `BOT_ENV`, proxy settings for development
 - Postgres: `POSTGRES_*`
-- APIs: `TWITTER_API_KEY`, `SERPER_API_KEY`, `OPENAI_API_KEY`
+- APIs: `TWITTER_API_KEY`, `BRAVE_SEARCH_API_KEY`, `OPENAI_API_KEY`
 
 ## Setup
 
@@ -57,10 +57,12 @@ Key groups:
 
 - Development mode uses the Telegram proxy only from `telebot/telegram/session.py`.
 - The bot process auto-creates schema on startup when `AUTO_CREATE_SCHEMA=true`.
-- In `BOT_ENV=development`, bot startup drops and recreates the app schema before polling begins.
+- In `BOT_ENV=development`, use `/reset_schema` or `/reanalysefortoday` when you want to clear dev data deliberately.
 - Alembic files are included for migration management.
 - The credentials and tokens currently present in chat history should be rotated if this thread is not private.
 
-# TODO:
-1. Review the AI models in each workflow used
-2. Make sure in all workflows we are only picking those posts that have unsafe as not true
+## Notes On Search
+
+- Reusable web search uses Brave LLM Context as the primary retrieval source.
+- Cross-query ranking is done on Brave-grounded snippets before synthesis.
+- `pypdf` remains available for optional PDF fallback work, but HTML scraping is not in the mainline path.

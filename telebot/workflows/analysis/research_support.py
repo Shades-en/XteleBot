@@ -1,13 +1,14 @@
 from agno.media import Image
-from agno.workflow.step import StepOutput
 
 from telebot.agents.schemas import ResearchTweetSynthesisResult
 from telebot.common.constants import (
     ALLOWED_URL_PREFIXES,
     RESEARCH_EVIDENCE_EXCERPT_CHAR_LIMIT,
-    RESEARCH_EVIDENCE_EXCERPTS_PER_SOURCE,
     RESEARCH_POST_MEDIA_LIMIT,
     RESEARCH_REPLY_MEDIA_LIMIT,
+    SYNTHESIS_EXCERPTS_PER_URL,
+    SYNTHESIS_MAX_URLS,
+    SYNTHESIS_REPLY_MEDIA_LIMIT,
 )
 from telebot.db.schemas import SourceEvidenceItem
 from telebot.search.schemas import WebSearchWorkflowResult
@@ -36,7 +37,7 @@ def build_synthesis_prompt_and_images(
     context: ResearchTweetContext,
     web_result: WebSearchWorkflowResult,
 ) -> tuple[str, list[Image]]:
-    images = _context_images(context)
+    images = [Image(url=url) for url in _valid_urls(context.media_urls, RESEARCH_POST_MEDIA_LIMIT)]
     reply_lines = _reply_lines(context, "reply_image_refs")
     evidence_lines = _evidence_lines(web_result)
     prompt = "\n\n".join(
@@ -69,24 +70,12 @@ def used_sources(
             SourceEvidenceItem(
                 url=evidence.url,
                 title=evidence.title,
-                summary=evidence.description,
-                description=evidence.description,
+                source_date=evidence.source_date,
                 content_excerpt="\n\n".join(evidence.content_excerpts[:2]),
                 source_type=evidence.source_type,
             )
         )
     return sources
-
-
-def loop_done(iteration_outputs: list[StepOutput]) -> bool:
-    if not iteration_outputs:
-        return False
-    last_output = iteration_outputs[-1].content
-    if not isinstance(last_output, dict):
-        return False
-    return bool(last_output.get("evidence_sufficient"))
-
-
 def _context_images(context: ResearchTweetContext) -> list[Image]:
     images = [Image(url=url) for url in _valid_urls(context.media_urls, RESEARCH_POST_MEDIA_LIMIT)]
     for reply in context.replies:
@@ -97,8 +86,9 @@ def _context_images(context: ResearchTweetContext) -> list[Image]:
 
 def _reply_lines(context: ResearchTweetContext, media_label: str) -> list[str]:
     lines: list[str] = []
+    limit = RESEARCH_REPLY_MEDIA_LIMIT if media_label == "reply_media_refs" else SYNTHESIS_REPLY_MEDIA_LIMIT
     for reply in context.replies:
-        reply_images = _valid_urls(reply.media_urls, RESEARCH_REPLY_MEDIA_LIMIT)
+        reply_images = _valid_urls(reply.media_urls, limit)
         lines.append(
             "\n".join(
                 [
@@ -113,18 +103,16 @@ def _reply_lines(context: ResearchTweetContext, media_label: str) -> list[str]:
 
 def _evidence_lines(web_result: WebSearchWorkflowResult) -> list[str]:
     lines: list[str] = []
-    for item in web_result.evidence:
+    for item in web_result.evidence[:SYNTHESIS_MAX_URLS]:
         excerpts = [
             excerpt[:RESEARCH_EVIDENCE_EXCERPT_CHAR_LIMIT]
-            for excerpt in item.content_excerpts[:RESEARCH_EVIDENCE_EXCERPTS_PER_SOURCE]
+            for excerpt in item.content_excerpts[:SYNTHESIS_EXCERPTS_PER_URL]
         ]
         lines.append(
             "\n".join(
                 [
-                    f"url: {item.url}",
-                    f"queries: {', '.join(item.original_search_queries)}",
                     f"title: {item.title or ''}",
-                    f"description: {item.description or ''}",
+                    f"source_date: {item.source_date or ''}",
                     f"content_excerpts: {' || '.join(excerpts) or 'none'}",
                 ]
             )

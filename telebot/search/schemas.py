@@ -18,29 +18,25 @@ class PostResearchPlan(BaseModel):
     def cap_queries(cls, value: list[SearchTask]) -> list[SearchTask]:
         return value[:5]
 
+    @classmethod
+    def fallback(cls, reason: str) -> "PostResearchPlan":
+        return cls(needs_search=False, reason=reason)
+
 
 class SearchCandidate(BaseModel):
     url: str
     original_search_queries: list[str] = Field(default_factory=list)
     title: str | None = None
-    description: str | None = None
+    source_date: str | None = None
     source_type: str
-
-
-class ExtractedDocument(BaseModel):
-    url: str
-    original_search_queries: list[str] = Field(default_factory=list)
-    title: str | None = None
-    description: str | None = None
-    content: str
-    source_type: str
+    content_excerpts: list[str] = Field(default_factory=list)
 
 
 class EvidenceChunk(BaseModel):
     url: str
     original_search_queries: list[str] = Field(default_factory=list)
     title: str | None = None
-    description: str | None = None
+    source_date: str | None = None
     content_excerpts: list[str] = Field(default_factory=list)
     source_type: str
     similarity_scores: list[float] = Field(default_factory=list)
@@ -49,3 +45,7 @@ class EvidenceChunk(BaseModel):
 class WebSearchWorkflowResult(BaseModel):
     plan: PostResearchPlan
     evidence: list[EvidenceChunk] = Field(default_factory=list)
+
+    @classmethod
+    def fallback(cls, reason: str) -> "WebSearchWorkflowResult":
+        return cls(plan=PostResearchPlan.fallback(reason), evidence=[])

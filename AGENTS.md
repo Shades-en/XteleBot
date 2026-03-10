@@ -55,22 +55,33 @@
 - Use Agno Workflow 2.0 patterns only.
 - Use class-based executors for workflow steps.
 - Use structured outputs with Pydantic where outputs are machine-consumed.
-- Use Agno built-in tools for Serper and Trafilatura.
-- Keep search orchestration in `telebot/search/`; do not scatter tool usage across unrelated modules.
+- Keep reusable web-search orchestration in `telebot/search/`; do not scatter retrieval logic across unrelated modules.
 - For image/media input to Agno agents, do not pass image URLs only as plain text in prompts when visual inspection is required.
 - Pass images using Agno multimodal input objects such as `images=[Image(url=...)]` or the equivalent supported media argument for the agent/team call.
 - When combining structured output with image analysis, prefer attaching the output schema to the agent and sending media through the `images=` argument.
 
 ## Search Rules
-- During per-post research, do not re-search or re-extract the same URL more than once within the same run.
-- Skip social links that are not useful scrape targets, including:
+- During per-post research, do not re-query or re-rank the same URL more than once within the same run.
+- Brave LLM Context is the primary retrieval source. Do not reintroduce Serper or Trafilatura into the mainline retriever without an explicit architectural change.
+- Keep evidence grouped by URL and preserve merged query provenance across duplicate results.
+- Parse Brave `sources[url].age` and carry the normalized `source_date` through search evidence into persisted `related_sources`.
+- Skip social links that are not useful research targets, including:
   - `x.com`
   - `twitter.com`
   - `t.co`
   - `facebook.com`
   - `fb.com`
-- Only keep scrapeable web sources for extraction and evidence building.
-- Search fallbacks should degrade cleanly by skipping unusable URLs rather than surfacing noisy scrape errors to the user.
+  - `instagram.com`
+  - `linkedin.com`
+  - `threads.net`
+- Use a two-stage Brave evidence selection flow:
+  - title-prefilter first
+  - excerpt scoring second
+- In the title-prefilter stage, embed `query_text` and all candidate titles in one embedding call, then reuse that same query embedding for the excerpt stage.
+- In the excerpt stage, embed only merged `title + excerpt` texts. Do not re-embed the query there.
+- Keep `content_excerpts` as a list and keep `similarity_scores` aligned 1:1 with that list by index.
+- Enforce the configured excerpt token budget before excerpt scoring by removing the lowest title-similarity candidates until the total excerpt tokens fit.
+- Search fallbacks should degrade cleanly to structured empty-evidence results rather than surfacing raw provider errors to the user.
 
 ## Telegram Rules
 - Canonical Telegram commands are lowercase only.

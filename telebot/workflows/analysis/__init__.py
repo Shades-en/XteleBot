@@ -33,10 +33,10 @@ def build_analysis_workflow(
                 name="Fetch Reply Context",
                 executor=FetchReplyContextExecutor(session_factory, twitter_client),
             ),
-            # Step(
-            #     name="Research Tweets",
-            #     executor=ResearchTweetsExecutor(session_factory, agno_factory),
-            # ),
+            Step(
+                name="Research Tweets",
+                executor=ResearchTweetsExecutor(session_factory, agno_factory),
+            ),
         ],
     )
 

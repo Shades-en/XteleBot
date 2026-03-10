@@ -1,6 +1,9 @@
+import logging
+
 from agno.workflow.step import Step, StepInput, StepOutput
 from agno.workflow.workflow import Workflow
 
+from telebot.common.constants import WEB_SEARCH_RETRIEVAL_FAILED_REASON
 from telebot.search.planner import WebSearchPlannerService
 from telebot.search.retrieval import ResearchRetrievalService
 from telebot.search.schemas import PostResearchPlan, WebSearchWorkflowResult
@@ -26,13 +29,20 @@ class RetrieveWebEvidenceExecutor:
 
     async def __call__(self, step_input: StepInput) -> StepOutput:
         search_input = step_input.get_input_as_string() or ""
-        plan_output = step_input.get_step_output(PLAN_WEB_SEARCH_STEP_NAME)
-        if plan_output is None:
-            plan = PostResearchPlan(needs_search=False)
-        else:
-            plan = PostResearchPlan.model_validate(plan_output.content)
-        evidence = await self.retrieval.retrieve(search_input, plan)
-        result = WebSearchWorkflowResult(plan=plan, evidence=evidence)
+        try:
+            plan_output = step_input.get_step_output(PLAN_WEB_SEARCH_STEP_NAME)
+            if plan_output is None:
+                plan = PostResearchPlan(needs_search=False)
+            else:
+                plan = PostResearchPlan.model_validate(plan_output.content)
+            evidence = await self.retrieval.retrieve(search_input, plan)
+            result = WebSearchWorkflowResult(plan=plan, evidence=evidence)
+        except Exception as exc:
+            logging.warning("Web evidence retrieval failed: %s", exc)
+            result = WebSearchWorkflowResult(
+                plan=plan if plan.reason else PostResearchPlan.fallback(WEB_SEARCH_RETRIEVAL_FAILED_REASON),
+                evidence=[],
+            )
         return StepOutput(content=result.model_dump(mode="json"))
 
 

@@ -37,6 +37,9 @@ async def handle_callback(callback: CallbackQuery, handlers: TelegramHandlers) -
     if command is CommandName.JOB_STATUS:
         await handlers.handle_jobstatus(callback.message, actor_user_id=actor_user_id)
         return
+    if command is CommandName.PING_WORKER:
+        await handlers.handle_pingworker(callback.message, actor_user_id=actor_user_id)
+        return
     if command is CommandName.ANALYZE_TODAY:
         await handlers.handle_analysetoday(callback.message, actor_user_id=actor_user_id)
         return
@@ -68,6 +71,10 @@ def register_handlers(dispatcher: Dispatcher, handlers: TelegramHandlers) -> Non
     dispatcher.message.register(handlers.handle_start, CommandStart())
     dispatcher.message.register(handlers.handle_help, Command(CommandName.HELP.value))
     dispatcher.message.register(handlers.handle_ping, Command(CommandName.PING.value))
+    dispatcher.message.register(
+        handlers.handle_pingworker,
+        Command(CommandName.PING_WORKER.value),
+    )
     dispatcher.message.register(
         handlers.handle_resetschema,
         Command(CommandName.RESET_SCHEMA.value),

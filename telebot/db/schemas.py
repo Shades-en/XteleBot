@@ -17,7 +17,6 @@ class ReplyContextItem(BaseModel):
 class SourceEvidenceItem(BaseModel):
     url: str
     title: str | None = None
-    summary: str | None = None
-    description: str | None = None
+    source_date: str | None = None
     content_excerpt: str | None = None
     source_type: str | None = None

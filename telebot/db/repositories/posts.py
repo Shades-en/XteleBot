@@ -59,9 +59,6 @@ class PostRepository:
         )
         return result.first() is not None
 
-    async def delete_posts_for_today(self) -> None:
-        await self.session.execute(delete(Post).where(Post.date_of_analysis == date.today()))
-
     async def delete_posts_for_today_by_user(self, telegram_user_id: int) -> None:
         await self.session.execute(delete(Post).where(Post.date_of_analysis == date.today()).where(Post.analysed_for_user_id == telegram_user_id))
 
@@ -104,11 +101,21 @@ class PostRepository:
         )
         return result.first() is not None
 
-    async def candidate_posts_for_today(
-        self,
-        telegram_user_id: int,
-        limit: int = ANALYSIS_TOP_RANKED_LIMIT,
-    ) -> list[Post]:
+    async def has_research_for_today(self, telegram_user_id: int) -> bool:
+        top_safe_rank = self._top_safe_rank_subquery(telegram_user_id)
+        result = await self.session.execute(
+            select(Post.post_id)
+            .where(Post.analysed_for_user_id == telegram_user_id)
+            .where(Post.date_of_analysis == date.today())
+            .where(Post.own_posts.is_(False))
+            .where(Post.unsafe.is_(False))
+            .where(Post.rank_position == top_safe_rank)
+            .where(Post.purpose.is_not(None))
+            .limit(1)
+        )
+        return result.first() is not None
+
+    async def candidate_posts_for_today(self, telegram_user_id: int, limit: int = ANALYSIS_TOP_RANKED_LIMIT) -> list[Post]:
         stmt: Select[tuple[Post]] = (
             select(Post)
             .where(Post.analysed_for_user_id == telegram_user_id)
@@ -119,11 +126,7 @@ class PostRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def top_ranked_posts(
-        self,
-        telegram_user_id: int,
-        limit: int = ANALYSIS_TOP_RANKED_LIMIT,
-    ) -> list[Post]:
+    async def top_ranked_posts(self, telegram_user_id: int, limit: int = ANALYSIS_TOP_RANKED_LIMIT) -> list[Post]:
         stmt: Select[tuple[Post]] = (
             select(Post)
             .where(Post.analysed_for_user_id == telegram_user_id)
@@ -136,11 +139,7 @@ class PostRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def top_safe_ranked_posts(
-        self,
-        telegram_user_id: int,
-        limit: int = ANALYSIS_REPLY_TARGET_LIMIT,
-    ) -> list[Post]:
+    async def top_safe_ranked_posts(self, telegram_user_id: int, limit: int = ANALYSIS_REPLY_TARGET_LIMIT) -> list[Post]:
         stmt: Select[tuple[Post]] = (
             select(Post)
             .where(Post.analysed_for_user_id == telegram_user_id)
@@ -154,12 +153,7 @@ class PostRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def set_rank(
-        self,
-        post_id: str,
-        rank_position: int,
-        rating_score: Decimal,
-    ) -> None:
+    async def set_rank(self, post_id: str, rank_position: int, rating_score: Decimal) -> None:
         post = await self.get_post(post_id)
         if post is None:
             return

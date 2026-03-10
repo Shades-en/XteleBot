@@ -14,6 +14,7 @@ class RankedReply:
 
 class ResearchTweetContext(BaseModel):
     post_id: str
+    rank_position: int
     text: str = ""
     categories: list[str] = Field(default_factory=list)
     media_urls: list[str] = Field(default_factory=list)
