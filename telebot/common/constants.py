@@ -59,11 +59,10 @@ TWITTER_ADVANCED_SEARCH_PATH = "/twitter/tweet/advanced_search"
 TWITTER_REPLIES_PATH = "/twitter/tweet/replies/v2"
 X_STATUS_URL_TEMPLATE = "https://x.com/{author_username}/status/{post_id}"
 TOPIC_QUERY_SEEDS = [
-    '("gpt-5" OR "gemini 2" OR "ai agent" OR "agentic ai" OR "mcp server")',
+    '("gpt" OR "gemini 2" OR "ai agent" OR "agentic ai" OR "mcp server")',
     '("cursor ai" OR "windsurf" OR "copilot" OR "coding agent" OR "vibe coding" OR "ai ide" OR "claude" OR "codex")',
-    '("ycombinator" OR "yc batch" OR "series a" OR "seed round" OR "techstars" OR "indie hacker")',
+    '("ycombinator" OR "yc batch" OR "AI" OR "Saas" OR "entrepreneurship")',
     '("llm" OR "fine-tuning" OR "rag" OR "vector database" OR "embeddings" OR "transformer")',
-    '("product hunt" OR "launch" OR "side project" OR "shipped" OR "built with" OR "open source")',
 ]
 COMMON_ADVANCED_SEARCH_FILTERS = (
     'lang:en filter:has_engagement min_faves:50 min_replies:5 filter:safe -filter:nativeretweets'
@@ -112,7 +111,7 @@ VERIFIED_CREDIBILITY_BONUS = 1.0
 # =============================================================================
 # ANALYSIS WORKFLOW - CLASSIFICATION
 # =============================================================================
-CLASSIFICATION_TARGET_LIMIT = 25
+CLASSIFICATION_TARGET_LIMIT = 15
 CLASSIFICATION_MEDIA_PER_POST_LIMIT = 3
 UNSAFE_CLASSIFICATION_SIGNALS = (
     "non-English content",
@@ -152,7 +151,7 @@ SYNTHESIS_MAX_URLS = 5  # Max evidence URLs to pass into synthesis
 SYNTHESIS_EXCERPTS_PER_URL = 2  # Max excerpts per URL to pass into synthesis
 SYNTHESIS_REPLY_MEDIA_LIMIT = 0  # Do not attach reply images during synthesis
 RESEARCH_TWEET_WORKFLOW_CONCURRENCY = 10  # Max tweets researched in parallel (1 = sequential)
-WEB_RESEARCH_MAX_TASKS = 4  # Max search queries per post
+WEB_RESEARCH_MAX_TASKS = 3  # Max search queries per post
 WEB_RESEARCH_FETCH_CONCURRENCY = 50  # Max Brave LLM Context calls in flight within one post's research
 EMBEDDING_CONCURRENCY = 30  # Max concurrent embedding API calls
 WEB_RESEARCH_EXCERPT_TOKEN_BUDGET = 15000  # Max total excerpt tokens before pruning lower-ranked candidates
@@ -202,9 +201,21 @@ CREATOR_STYLE_EXAMPLE_LIMIT = 8
 CREATOR_STYLE_EXAMPLE_FETCH_LIMIT = 24
 CREATOR_STYLE_MIN_TEXT_LENGTH = 40
 CREATOR_STYLE_EXCLUDED_PREFIXES = ("@", "RT @")
+CREATOR_ALTERNATIVE_WINDOW_SIZE = 3
+CREATOR_CANDIDATE_PREVIEW_LENGTH = 160
 CREATOR_SOURCE_MEDIA_LIMIT = 3
 CREATOR_REPLY_CONTEXT_PROMPT_LIMIT = 5
 CREATOR_RELATED_SOURCE_LIMIT = 4
+CREATOR_THREAD_STYLE_MIN_PARAGRAPHS = 3
+CREATOR_THREAD_STYLE_MAX_PARAGRAPHS = 4
+CREATOR_PARAGRAPH_MIN_SENTENCES = 1
+CREATOR_PARAGRAPH_MAX_SENTENCES = 2
+CREATOR_POST_MIN_CHARS = 400
+CREATOR_POST_MAX_CHARS = 600
+CREATOR_QUOTE_MIN_CHARS = 100
+CREATOR_QUOTE_MAX_CHARS = 300
+CREATOR_COMMENT_MAX_CHARS = 50
+CREATOR_BANNED_PUNCTUATION = ("—", ";")
 
 # =============================================================================
 # CREATOR WORKFLOW - SCHEDULE

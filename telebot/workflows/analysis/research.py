@@ -42,7 +42,7 @@ class ResearchTweetsExecutor:
             if await repo.has_research_for_today(context.telegram_user_id):
                 return StepOutput(content="research_skipped")
             await report_progress(context, "plan_research")
-            posts = await repo.top_safe_ranked_posts(
+            posts = await repo.top_safe_classified_ranked_posts(
                 context.telegram_user_id,
                 limit=ANALYSIS_RESEARCH_TARGET_LIMIT,
             )

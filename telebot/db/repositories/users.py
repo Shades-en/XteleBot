@@ -70,6 +70,16 @@ class UserRepository:
         await self.session.flush()
         return app_session
 
+    async def set_creator_state(
+        self,
+        telegram_user_id: int,
+        creator_state: dict | None,
+    ) -> AppSession:
+        app_session = await self.ensure_current_session(telegram_user_id)
+        app_session.creator_state = creator_state
+        await self.session.flush()
+        return app_session
+
     async def update_x_identity(
         self,
         telegram_user_id: int,

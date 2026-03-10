@@ -11,6 +11,7 @@ async def create_schema(engine: AsyncEngine, reset_schema: bool = False) -> None
             await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
         await _ensure_workflow_job_cost_columns(connection)
+        await _ensure_app_session_creator_state_column(connection)
 
 
 async def reset_schema(engine: AsyncEngine) -> None:
@@ -30,5 +31,14 @@ async def _ensure_workflow_job_cost_columns(connection) -> None:
         text(
             "ALTER TABLE workflow_jobs "
             "ADD COLUMN IF NOT EXISTS cost_breakdown JSON"
+        )
+    )
+
+
+async def _ensure_app_session_creator_state_column(connection) -> None:
+    await connection.execute(
+        text(
+            "ALTER TABLE app_sessions "
+            "ADD COLUMN IF NOT EXISTS creator_state JSON"
         )
     )

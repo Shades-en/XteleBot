@@ -30,3 +30,19 @@ class CreatorContext:
     source_post: CreatorSourcePost
     style_examples: list[CreatorStyleExample]
     refinement: str | None = None
+
+
+@dataclass(frozen=True)
+class CreatorValidationResult:
+    issues: list[str] = field(default_factory=list)
+
+    @property
+    def has_issues(self) -> bool:
+        return bool(self.issues)
+
+
+@dataclass(frozen=True)
+class CreatorDraftResult:
+    body: str
+    source_url: str | None = None
+    related_source_urls: list[str] = field(default_factory=list)

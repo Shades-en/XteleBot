@@ -1,3 +1,5 @@
+from telebot.common.constants import WEB_RESEARCH_MAX_TASKS
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -16,7 +18,7 @@ class PostResearchPlan(BaseModel):
     @field_validator("queries")
     @classmethod
     def cap_queries(cls, value: list[SearchTask]) -> list[SearchTask]:
-        return value[:5]
+        return value[:WEB_RESEARCH_MAX_TASKS]
 
     @classmethod
     def fallback(cls, reason: str) -> "PostResearchPlan":

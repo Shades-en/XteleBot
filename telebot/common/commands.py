@@ -2,6 +2,8 @@ from telebot.common.enums import CommandName
 
 COMMAND_PREFIX = "/"
 CALLBACK_PREFIX = "cmd:"
+CREATOR_ALTERNATIVES_CALLBACK_PREFIX = "creator:alt"
+CREATOR_PICK_CALLBACK_PREFIX = "creator:pick:"
 COMMAND_SEPARATOR = " "
 BOT_COMMAND_SEPARATOR = "@"
 

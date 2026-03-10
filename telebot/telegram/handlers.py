@@ -169,22 +169,14 @@ class TelegramHandlers:
         message: Message,
         actor_user_id: int | None = None,
     ) -> None:
-        await self.creator_service.handle_command(
-            message,
-            CommandName.QUOTE,
-            actor_user_id=actor_user_id,
-        )
+        await self.creator_service.handle_command(message, CommandName.QUOTE, actor_user_id=actor_user_id)
 
     async def handle_comment(
         self,
         message: Message,
         actor_user_id: int | None = None,
     ) -> None:
-        await self.creator_service.handle_command(
-            message,
-            CommandName.COMMENT,
-            actor_user_id=actor_user_id,
-        )
+        await self.creator_service.handle_command(message, CommandName.COMMENT, actor_user_id=actor_user_id)
 
     async def handle_postbyinspiration(
         self,
@@ -192,9 +184,24 @@ class TelegramHandlers:
         actor_user_id: int | None = None,
     ) -> None:
         await self.creator_service.handle_command(
-            message,
-            CommandName.POST_BY_INSPIRATION,
-            actor_user_id=actor_user_id,
+            message, CommandName.POST_BY_INSPIRATION, actor_user_id=actor_user_id
+        )
+
+    async def handle_creator_alternatives(
+        self,
+        message: Message,
+        actor_user_id: int | None = None,
+    ) -> None:
+        await self.creator_service.handle_show_alternatives(message, actor_user_id=actor_user_id)
+
+    async def handle_creator_pick(
+        self,
+        message: Message,
+        selected_post_id: str,
+        actor_user_id: int | None = None,
+    ) -> None:
+        await self.creator_service.handle_select_source_post(
+            message, selected_post_id, actor_user_id=actor_user_id
         )
 
     async def handle_text(self, message: Message) -> None:

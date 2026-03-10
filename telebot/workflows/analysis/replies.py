@@ -34,7 +34,7 @@ class FetchReplyContextExecutor:
         await report_progress(context, "replies")
         async with self.session_factory() as session:
             repo = PostRepository(session)
-            posts = await repo.top_safe_ranked_posts(
+            posts = await repo.top_safe_classified_ranked_posts(
                 context.telegram_user_id,
                 limit=ANALYSIS_REPLY_TARGET_LIMIT,
             )

@@ -1,6 +1,5 @@
 from agno.agent import Agent
 from agno.db.postgres import AsyncPostgresDb
-from agno.learn import LearningMachine, LearningMode, SessionContextConfig, UserMemoryConfig, UserProfileConfig
 from agno.models.openai import OpenAIResponses
 
 from telebot.agents.schemas import PostClassificationBatch, ResearchTweetSynthesisResult
@@ -11,7 +10,10 @@ from telebot.common.constants import (
 )
 from telebot.config import Settings
 from telebot.prompts.classification import CLASSIFICATION_SYSTEM_PROMPT
-from telebot.prompts.creator import CREATOR_SYSTEM_PROMPT
+from telebot.prompts.creator import (
+    CREATOR_REFINER_SYSTEM_PROMPT,
+    CREATOR_SYSTEM_PROMPT,
+)
 from telebot.prompts.research import (
     RESEARCH_PLANNER_PROMPT,
     RESEARCH_SYNTHESIS_AGENT_PROMPT,
@@ -27,20 +29,24 @@ class AgnoFactory:
     def _model(self) -> OpenAIResponses:
         return OpenAIResponses(id=OPENAI_CHAT_MODEL)
 
-    def _learning(self) -> LearningMachine:
-        return LearningMachine(
-            user_profile=UserProfileConfig(mode=LearningMode.ALWAYS),
-            user_memory=UserMemoryConfig(mode=LearningMode.AGENTIC),
-            session_context=SessionContextConfig(enable_planning=True),
-        )
-
     def build_creator_agent(self) -> Agent:
         return Agent(
             name="Content Creator",
             model=self._model(),
             db=self.db,
-            learning=self._learning(),
             instructions=[CREATOR_SYSTEM_PROMPT],
+            add_history_to_context=True,
+            num_history_runs=4,
+            markdown=True,
+            tool_call_limit=AGNO_TOOL_CALL_LIMIT,
+        )
+
+    def build_creator_refiner_agent(self) -> Agent:
+        return Agent(
+            name="Content Refiner",
+            model=self._model(),
+            db=self.db,
+            instructions=[CREATOR_REFINER_SYSTEM_PROMPT],
             add_history_to_context=True,
             num_history_runs=4,
             markdown=True,

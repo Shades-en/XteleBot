@@ -61,6 +61,33 @@ class PostRepositoryTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("ORDER BY posts.posted_at DESC", sql)
         self.assertIn(f"LIMIT {CREATOR_STYLE_EXAMPLE_FETCH_LIMIT}", sql)
 
+    async def test_creator_candidates_for_purpose_are_rank_ordered(self) -> None:
+        first = Post(post_id="p-1", purpose=PostPurpose.POST.value)
+        second = Post(post_id="p-2", purpose=PostPurpose.POST.value)
+        session = FakeSession(FakeResult(posts=[first, second]))
+        repo = PostRepository(session)
+
+        results = await repo.creator_candidates_for_purpose(101, PostPurpose.POST)
+
+        self.assertEqual(results, [first, second])
+        sql = str(session.last_stmt.compile(compile_kwargs={"literal_binds": True}))
+        self.assertIn("posts.purpose = 'Post'", sql)
+        self.assertIn("ORDER BY posts.rank_position ASC", sql)
+
+    async def test_top_safe_classified_ranked_posts_require_primary_category(self) -> None:
+        first = Post(post_id="p-1", primary_category="AI")
+        second = Post(post_id="p-2", primary_category="Business")
+        session = FakeSession(FakeResult(posts=[first, second]))
+        repo = PostRepository(session)
+
+        results = await repo.top_safe_classified_ranked_posts(101, limit=2)
+
+        self.assertEqual(results, [first, second])
+        sql = str(session.last_stmt.compile(compile_kwargs={"literal_binds": True}))
+        self.assertIn("posts.primary_category IS NOT NULL", sql)
+        self.assertIn("posts.unsafe IS false", sql)
+        self.assertIn("LIMIT 2", sql)
+
 
 if __name__ == "__main__":
     unittest.main()

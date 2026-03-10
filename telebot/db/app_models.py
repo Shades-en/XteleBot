@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, Enum, ForeignKey, String, UniqueConstraint
+from sqlalchemy import BigInteger, Date, DateTime, Enum, ForeignKey, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from telebot.common.enums import SessionStatus
@@ -41,6 +41,7 @@ class AppSession(Base):
     )
     week_anchor_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     last_command: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    creator_state: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,

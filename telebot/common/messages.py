@@ -67,6 +67,41 @@ TEXT_CREATOR_SOURCE_REQUIRED = {
         "Run /analysetoday again later or use /postbyinspiration."
     ),
 }
+TEXT_CREATOR_ACK = {
+    CommandName.POST_BY_INSPIRATION: (
+        "Choose the grounded source post for the standalone draft first. I will write it once you pick one."
+    ),
+    CommandName.QUOTE: (
+        "Choose the grounded source post for the quote draft first. I will write it once you pick one."
+    ),
+    CommandName.COMMENT: (
+        "Choose the grounded source post for the comment first. I will write it once you pick one."
+    ),
+}
+TEXT_CREATOR_PROGRESS = {
+    CommandName.POST_BY_INSPIRATION: (
+        "Grounded context is ready. Writing a concise, high-signal post now."
+    ),
+    CommandName.QUOTE: (
+        "Grounded context is ready. Writing a tight quote draft now."
+    ),
+    CommandName.COMMENT: (
+        "Grounded context is ready. Writing a short, pointed comment now."
+    ),
+}
+TEXT_CREATOR_REFINEMENT_ACK = {
+    CommandName.POST_BY_INSPIRATION: (
+        "Refining the post now. I am tightening the angle and voice."
+    ),
+    CommandName.QUOTE: (
+        "Refining the quote now. I am tightening the framing and reaction."
+    ),
+    CommandName.COMMENT: (
+        "Refining the comment now. I am making it sharper and cleaner."
+    ),
+}
+TEXT_CREATOR_COST_TEMPLATE = "Draft generation cost\n\n{summary}"
+TEXT_CREATOR_JOB_COMPLETED = "Creator draft generated."
 TEXT_JOB_STATUS_TEMPLATE = (
     "Latest job status\n\n"
     "Job id: {job_id}\n"
@@ -80,7 +115,29 @@ TEXT_SCHEDULE_TEMPLATE = "Weekly schedule\n\n{lines}\n\nToday's action: {today_a
 TEXT_GENERIC_WORKFLOW_FAILURE = "The workflow failed. Check logs and try again."
 TEXT_UNSUPPORTED_ACTION = "Unsupported action. Use /help."
 TEXT_JOB_PROGRESS_TEMPLATE = "[{stage}] {message}"
-TEXT_SOURCE_POST_LINK_TEMPLATE = "\n\nSource post: {source_url}"
+TEXT_SOURCE_POST_LINK_TEMPLATE = "Source post: {source_url}"
+TEXT_RELATED_SOURCES_HEADER = "Related sources:"
+TEXT_CREATOR_DIFFERENT_POST_BUTTON = "Different post"
+TEXT_CREATOR_MORE_OPTIONS_BUTTON = "More options"
+TEXT_CREATOR_PICK_OPTION_TEMPLATE = "Use option {index}"
+TEXT_CREATOR_SELECTION_HEADER_TEMPLATE = (
+    "Choose a grounded {purpose} candidate for today.\n\n{options}"
+)
+TEXT_CREATOR_ALTERNATIVES_HEADER_TEMPLATE = (
+    "Here are other grounded {purpose} candidates for today.\n\n{options}"
+)
+TEXT_CREATOR_ALTERNATIVE_ITEM_TEMPLATE = (
+    "{index}. Rank #{rank}\n"
+    "{text}\n"
+    "Source: {source_url}"
+)
+TEXT_CREATOR_NO_ALTERNATIVES_TEMPLATE = (
+    "There are no other grounded {purpose} candidates for today. "
+    "I can keep refining the current draft."
+)
+TEXT_CREATOR_STALE_SELECTION = (
+    "That candidate is no longer available. Tap Different post again."
+)
 TEXT_GENERATOR_PREFIX = {
     CommandName.POST_BY_INSPIRATION: "Draft post",
     CommandName.QUOTE: "Draft quote",

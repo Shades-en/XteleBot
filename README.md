@@ -26,14 +26,31 @@ Two processes are expected:
 - `/start`
 - `/help`
 - `/ping`
+- `/pingworker`
 - `/currentuser`
 - `/jobstatus`
 - `/reset_schema` (development only)
 - `/analysetoday`
+- `/reanalysefortoday`
 - `/postbyinspiration`
 - `/quote`
 - `/comment`
 - `/schedule`
+
+## Command Behavior
+
+- `/analysetoday`
+  - queues the analysis workflow and sends progress updates as it moves through collection, ranking, classification, reply fetching, research, and synthesis
+- `/reanalysefortoday`
+  - deletes today's analysis rows for the current Telegram user and reruns the workflow from scratch
+- `/postbyinspiration`, `/quote`, `/comment`
+  - acknowledge immediately
+  - send a second progress message while drafting
+  - use today's grounded analysis as source context
+- `/pingworker`
+  - verifies that the background worker is alive by round-tripping a lightweight job through the queue
+- `/jobstatus`
+  - shows the latest job state and stored API cost summary
 
 ## Environment
 
@@ -58,11 +75,21 @@ Key groups:
 - Development mode uses the Telegram proxy only from `telebot/telegram/session.py`.
 - The bot process auto-creates schema on startup when `AUTO_CREATE_SCHEMA=true`.
 - In `BOT_ENV=development`, use `/reset_schema` or `/reanalysefortoday` when you want to clear dev data deliberately.
+- Analysis completion and failure messages include API-only cost reporting for OpenAI, Brave, and TwitterAPI.io.
 - Alembic files are included for migration management.
 - The credentials and tokens currently present in chat history should be rotated if this thread is not private.
 
 ## Notes On Search
 
 - Reusable web search uses Brave LLM Context as the primary retrieval source.
-- Cross-query ranking is done on Brave-grounded snippets before synthesis.
+- Cross-query ranking is done in two stages before synthesis:
+  - title prefiltering against the post-level query intent
+  - excerpt scoring with a bounded excerpt token budget
 - `pypdf` remains available for optional PDF fallback work, but HTML scraping is not in the mainline path.
+
+## Notes On Creator Drafts
+
+- `/postbyinspiration` targets roughly `600-800` characters.
+- `/quote` targets roughly `200-400` characters.
+- `/comment` targets under `100` characters.
+- Creator drafts are instructed to open clearly, sound human, and avoid flat informational tone.

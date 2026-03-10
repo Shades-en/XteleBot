@@ -1,35 +1,50 @@
 from telebot.common.constants import (
+    CREATOR_COMMENT_MAX_CHARS,
+    CREATOR_POST_MAX_CHARS,
+    CREATOR_POST_MIN_CHARS,
+    CREATOR_QUOTE_MAX_CHARS,
+    CREATOR_QUOTE_MIN_CHARS,
     CREATOR_RELATED_SOURCE_LIMIT,
     CREATOR_REPLY_CONTEXT_PROMPT_LIMIT,
 )
 from telebot.common.enums import CommandName
 from telebot.prompts.creator import (
-    CREATOR_COMMENT_SPEC,
-    CREATOR_POST_SPEC,
-    CREATOR_QUOTE_SPEC,
-    CREATOR_SHARED_GUIDANCE,
+    build_creator_refiner_style_guide,
+    build_creator_style_guide,
 )
-from telebot.workflows.creator_types import CreatorContext
-
-PROMPT_SPECS = {
-    CommandName.POST_BY_INSPIRATION: CREATOR_POST_SPEC,
-    CommandName.QUOTE: CREATOR_QUOTE_SPEC,
-    CommandName.COMMENT: CREATOR_COMMENT_SPEC,
-}
+from telebot.workflows.creator_types import CreatorContext, CreatorValidationResult
 
 
 def build_creator_prompt(context: CreatorContext) -> str:
     return "\n\n".join(
         [
             f"Requested format: {context.command.value}",
-            PROMPT_SPECS[context.command],
-            CREATOR_SHARED_GUIDANCE,
+            build_creator_style_guide(context.command),
             _source_post_section(context),
             _style_examples_section(context),
             _refinement_section(context),
             _output_rules(context.command),
         ]
     )
+
+
+def build_creator_refiner_prompt(
+    context: CreatorContext,
+    draft: str,
+    validation: CreatorValidationResult,
+) -> str:
+    sections = [
+        f"Requested format: {context.command.value}",
+        "Refine the draft so it matches this writing brief exactly.",
+        build_creator_refiner_style_guide(context.command),
+        _source_post_section(context),
+        _style_examples_section(context),
+        _refinement_section(context),
+        f"Creator draft to refine:\n{draft}",
+        _validation_feedback_section(validation),
+        _refiner_output_rules(context.command),
+    ]
+    return "\n\n".join(section for section in sections if section)
 
 
 def _source_post_section(context: CreatorContext) -> str:
@@ -116,14 +131,61 @@ def _output_rules(command: CommandName) -> str:
     if command is CommandName.COMMENT:
         return (
             "Return only the comment draft. "
-            "Keep it compact and do not include analysis notes, labels, bullets, or explanations."
+            f"Keep it under {CREATOR_COMMENT_MAX_CHARS} characters. "
+            "Follow the writing brief above exactly. "
+            "Lead with a clear, natural line that feels human and direct. "
+            "Do not include analysis notes, labels, bullets, or explanations. "
+            "Never use an em dash or a semicolon."
         )
     if command is CommandName.QUOTE:
         return (
             "Return only the quote-post draft. "
-            "Do not include analysis notes, labels, bullets, or explanations."
+            f"Keep it between {CREATOR_QUOTE_MIN_CHARS} and {CREATOR_QUOTE_MAX_CHARS} characters. "
+            "Follow the writing brief above exactly. "
+            "Make the opening line clear and strong for a reader with no context. "
+            "Do not include analysis notes, labels, bullets, or explanations. "
+            "Never use an em dash or a semicolon."
         )
     return (
         "Return only the standalone post draft. "
-        "Do not include analysis notes, labels, bullets, or explanations."
+        f"Keep it between {CREATOR_POST_MIN_CHARS} and {CREATOR_POST_MAX_CHARS} characters. "
+        "Follow the writing brief above exactly. "
+        "Make the opening line strong, specific, and easy to understand cold. "
+        "Do not include analysis notes, labels, bullets, or explanations. "
+        "Never use an em dash or a semicolon."
+    )
+
+
+def _validation_feedback_section(validation: CreatorValidationResult) -> str:
+    if not validation.has_issues:
+        return ""
+    return (
+        "Deterministic validation feedback:\n"
+        + "\n".join(f"- {issue}" for issue in validation.issues)
+    )
+
+
+def _refiner_output_rules(command: CommandName) -> str:
+    if command is CommandName.COMMENT:
+        return (
+            "Return only the refined comment body. "
+            f"Keep it under {CREATOR_COMMENT_MAX_CHARS} characters. "
+            "Match the writing brief above exactly. "
+            "Make it human, clean, concise, and naturally phrased. "
+            "Never use an em dash or a semicolon."
+        )
+    if command is CommandName.QUOTE:
+        return (
+            "Return only the refined quote-post body. "
+            f"Keep it between {CREATOR_QUOTE_MIN_CHARS} and {CREATOR_QUOTE_MAX_CHARS} characters. "
+            "Match the writing brief above exactly. "
+            "Improve narrative flow and spacing without losing the core take. "
+            "Never use an em dash or a semicolon."
+        )
+    return (
+        "Return only the refined standalone post body. "
+        f"Keep it between {CREATOR_POST_MIN_CHARS} and {CREATOR_POST_MAX_CHARS} characters. "
+        "Match the writing brief above exactly. "
+        "Improve readability, line breaks, and narrative flow while preserving the core idea. "
+        "Never use an em dash or a semicolon."
     )

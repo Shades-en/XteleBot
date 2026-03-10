@@ -2,7 +2,11 @@ from aiogram import Dispatcher, F
 from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery
 
-from telebot.common.commands import CALLBACK_PREFIX
+from telebot.common.commands import (
+    CALLBACK_PREFIX,
+    CREATOR_ALTERNATIVES_CALLBACK_PREFIX,
+    CREATOR_PICK_CALLBACK_PREFIX,
+)
 from telebot.common.enums import CommandName
 from telebot.common.messages import TEXT_UNSUPPORTED_ACTION
 from telebot.telegram.handlers import TelegramHandlers
@@ -11,6 +15,23 @@ from telebot.telegram.handlers import TelegramHandlers
 async def handle_callback(callback: CallbackQuery, handlers: TelegramHandlers) -> None:
     if callback.data is None or callback.message is None:
         await callback.answer(TEXT_UNSUPPORTED_ACTION)
+        return
+    actor_user_id = callback.from_user.id
+    actor_display_name = callback.from_user.full_name
+    if callback.data == CREATOR_ALTERNATIVES_CALLBACK_PREFIX:
+        await callback.answer()
+        await handlers.handle_creator_alternatives(
+            callback.message,
+            actor_user_id=actor_user_id,
+        )
+        return
+    if callback.data.startswith(CREATOR_PICK_CALLBACK_PREFIX):
+        await callback.answer()
+        await handlers.handle_creator_pick(
+            callback.message,
+            selected_post_id=callback.data[len(CREATOR_PICK_CALLBACK_PREFIX) :],
+            actor_user_id=actor_user_id,
+        )
         return
     if not callback.data.startswith(CALLBACK_PREFIX):
         await callback.answer(TEXT_UNSUPPORTED_ACTION)
@@ -22,8 +43,6 @@ async def handle_callback(callback: CallbackQuery, handlers: TelegramHandlers) -
         await callback.answer(TEXT_UNSUPPORTED_ACTION)
         return
     await callback.answer()
-    actor_user_id = callback.from_user.id
-    actor_display_name = callback.from_user.full_name
     if command is CommandName.CURRENT_USER:
         await handlers.handle_currentuser(
             callback.message,
@@ -102,8 +121,5 @@ def register_handlers(dispatcher: Dispatcher, handlers: TelegramHandlers) -> Non
     )
     dispatcher.message.register(handlers.handle_quote, Command(CommandName.QUOTE.value))
     dispatcher.message.register(handlers.handle_comment, Command(CommandName.COMMENT.value))
-    dispatcher.callback_query.register(
-        callback_handler,
-        F.data.startswith(CALLBACK_PREFIX),
-    )
+    dispatcher.callback_query.register(callback_handler)
     dispatcher.message.register(handlers.handle_text, F.text)

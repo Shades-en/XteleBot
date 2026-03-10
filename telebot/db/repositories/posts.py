@@ -96,7 +96,7 @@ class PostRepository:
         return result.first() is not None
 
     async def has_reply_context_for_today(self, telegram_user_id: int) -> bool:
-        top_safe_rank = self._top_safe_rank_subquery(telegram_user_id)
+        top_safe_rank = self._top_safe_classified_rank_subquery(telegram_user_id)
         result = await self.session.execute(
             select(Post.post_id)
             .where(Post.analysed_for_user_id == telegram_user_id)
@@ -104,13 +104,14 @@ class PostRepository:
             .where(Post.own_posts.is_(False))
             .where(Post.unsafe.is_(False))
             .where(Post.rank_position == top_safe_rank)
+            .where(Post.primary_category.is_not(None))
             .where(Post.reply_context.is_not(None))
             .limit(1)
         )
         return result.first() is not None
 
     async def has_research_for_today(self, telegram_user_id: int) -> bool:
-        top_safe_rank = self._top_safe_rank_subquery(telegram_user_id)
+        top_safe_rank = self._top_safe_classified_rank_subquery(telegram_user_id)
         result = await self.session.execute(
             select(Post.post_id)
             .where(Post.analysed_for_user_id == telegram_user_id)
@@ -118,6 +119,7 @@ class PostRepository:
             .where(Post.own_posts.is_(False))
             .where(Post.unsafe.is_(False))
             .where(Post.rank_position == top_safe_rank)
+            .where(Post.primary_category.is_not(None))
             .where(Post.purpose.is_not(None))
             .limit(1)
         )
@@ -161,6 +163,25 @@ class PostRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def top_safe_classified_ranked_posts(
+        self,
+        telegram_user_id: int,
+        limit: int = ANALYSIS_REPLY_TARGET_LIMIT,
+    ) -> list[Post]:
+        stmt: Select[tuple[Post]] = (
+            select(Post)
+            .where(Post.analysed_for_user_id == telegram_user_id)
+            .where(Post.date_of_analysis == date.today())
+            .where(Post.own_posts.is_(False))
+            .where(Post.rank_position.is_not(None))
+            .where(Post.unsafe.is_(False))
+            .where(Post.primary_category.is_not(None))
+            .order_by(Post.rank_position.asc())
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def best_researched_post_for_creator(
         self,
         telegram_user_id: int,
@@ -170,6 +191,16 @@ class PostRepository:
             self._creator_source_post_stmt(telegram_user_id, purpose)
         )
         return result.scalar_one_or_none()
+
+    async def creator_candidates_for_purpose(
+        self,
+        telegram_user_id: int,
+        purpose: PostPurpose,
+    ) -> list[Post]:
+        result = await self.session.execute(
+            self._creator_candidates_stmt(telegram_user_id, purpose)
+        )
+        return list(result.scalars().all())
 
     async def recent_own_posts_for_creator_style(
         self,
@@ -263,7 +294,29 @@ class PostRepository:
         )
 
     @staticmethod
+    def _top_safe_classified_rank_subquery(telegram_user_id: int):
+        return (
+            select(Post.rank_position)
+            .where(Post.analysed_for_user_id == telegram_user_id)
+            .where(Post.date_of_analysis == date.today())
+            .where(Post.own_posts.is_(False))
+            .where(Post.rank_position.is_not(None))
+            .where(Post.unsafe.is_(False))
+            .where(Post.primary_category.is_not(None))
+            .order_by(Post.rank_position.asc())
+            .limit(1)
+            .scalar_subquery()
+        )
+
+    @staticmethod
     def _creator_source_post_stmt(
+        telegram_user_id: int,
+        purpose: PostPurpose,
+    ) -> Select[tuple[Post]]:
+        return PostRepository._creator_candidates_stmt(telegram_user_id, purpose).limit(1)
+
+    @staticmethod
+    def _creator_candidates_stmt(
         telegram_user_id: int,
         purpose: PostPurpose,
     ) -> Select[tuple[Post]]:
@@ -276,7 +329,6 @@ class PostRepository:
             .where(Post.unsafe.is_(False))
             .where(Post.purpose == purpose.value)
             .order_by(Post.rank_position.asc())
-            .limit(1)
         )
 
     @staticmethod

@@ -1,6 +1,14 @@
+from telebot.common.constants import (
+    PURPOSE_SCORE_MAX,
+    PURPOSE_SCORE_MIN,
+    WEB_RESEARCH_MAX_TASKS,
+)
+
+PURPOSE_SCORE_RANGE_TEXT = f"{PURPOSE_SCORE_MIN:g} to {PURPOSE_SCORE_MAX:g}"
+
 RESEARCH_PLANNER_PROMPT = (
     "Decide whether this generic research packet requires external web research. "
-    "If research is needed, return up to 5 concrete web search queries focused on articles, "
+    f"If research is needed, return up to {WEB_RESEARCH_MAX_TASKS} concrete web search queries focused on articles, "
     "docs, company websites, product pages, publications, or PDFs. "
     "Do not target social-media pages. Prefer concrete primary sources and current articles. "
     "Queries should bias toward results from the last 3 days."
@@ -18,7 +26,7 @@ RESEARCH_SYNTHESIS_AGENT_PROMPT = (
     "Strong reply opportunities in reply context push toward Comment. "
     "A broad idea with room for independent expansion pushes toward Post. "
     "Evaluate all three purposes explicitly, explain briefly why each is or is not suitable, then choose the best one. "
-    "Return purpose_scores on a 0 to 10 scale for post, quote, and comment, and include a concise purpose_rationale for the final choice. "
+    f"Return purpose_scores on a {PURPOSE_SCORE_RANGE_TEXT} scale for post, quote, and comment, and include a concise purpose_rationale for the final choice. "
     "Write agent_comments as a detailed internal brief for a content creator who is a software engineer, SaaS builder, and tech enthusiast. "
     "The brief must not sound like a news report, analyst note, PR memo, or formal media writeup. "
     "It should help the creator sound like a sharp builder reacting to something interesting in the market. "

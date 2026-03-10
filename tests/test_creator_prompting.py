@@ -5,12 +5,18 @@ from telebot.prompts.creator import (
     CREATOR_COMMENT_SPEC,
     CREATOR_POST_SPEC,
     CREATOR_QUOTE_SPEC,
+    CREATOR_REFINER_SYSTEM_PROMPT,
+    CREATOR_SYSTEM_PROMPT,
 )
-from telebot.workflows.creator_prompting import build_creator_prompt
+from telebot.workflows.creator_prompting import (
+    build_creator_prompt,
+    build_creator_refiner_prompt,
+)
 from telebot.workflows.creator_types import (
     CreatorContext,
     CreatorSourcePost,
     CreatorStyleExample,
+    CreatorValidationResult,
 )
 
 
@@ -72,6 +78,44 @@ class CreatorPromptingTests(unittest.TestCase):
         self.assertIn("Most software gets better", prompt)
         self.assertIn("Make it feel more like a founder", prompt)
         self.assertIn("source_post_media_refs: https://example.com/image.png", prompt)
+
+    def test_creator_prompt_mentions_x_twitter_and_banned_punctuation(self) -> None:
+        prompt = build_creator_prompt(sample_context(CommandName.POST_BY_INSPIRATION))
+        self.assertIn("X/Twitter", prompt)
+        self.assertIn("Never use an em dash or a semicolon.", prompt)
+        self.assertIn("Do not prepend labels like 'Opinion:'", CREATOR_SYSTEM_PROMPT)
+        self.assertIn("Do not use section-heading labels inside the post such as 'Product rules:'", CREATOR_SYSTEM_PROMPT)
+        self.assertIn("Do not default to opening with hedges like 'If true'", CREATOR_SYSTEM_PROMPT)
+        self.assertIn("Do not end with analyst-style closers like 'Watch...'", CREATOR_SYSTEM_PROMPT)
+
+    def test_refiner_prompt_includes_validation_feedback_when_present(self) -> None:
+        prompt = build_creator_refiner_prompt(
+            sample_context(CommandName.QUOTE),
+            "Draft body",
+            CreatorValidationResult(issues=["Body exceeds 300 characters."]),
+        )
+        self.assertIn("Creator draft to refine:\nDraft body", prompt)
+        self.assertIn("- Body exceeds 300 characters.", prompt)
+
+    def test_refiner_prompt_omits_corrective_feedback_when_clean(self) -> None:
+        prompt = build_creator_refiner_prompt(
+            sample_context(CommandName.COMMENT),
+            "Draft body",
+            CreatorValidationResult(),
+        )
+        self.assertNotIn("Deterministic validation feedback:", prompt)
+
+    def test_refiner_prompt_bans_editorial_signposts_and_watch_closers(self) -> None:
+        prompt = build_creator_refiner_prompt(
+            sample_context(CommandName.POST_BY_INSPIRATION),
+            "Draft body",
+            CreatorValidationResult(),
+        )
+        self.assertIn("Creator draft to refine:\nDraft body", prompt)
+        self.assertIn("Remove editorial signposts like 'Opinion:'", CREATOR_REFINER_SYSTEM_PROMPT)
+        self.assertIn("Remove section-heading labels like 'Product rules:'", CREATOR_REFINER_SYSTEM_PROMPT)
+        self.assertIn("Remove default speculative hooks like 'If true'", CREATOR_REFINER_SYSTEM_PROMPT)
+        self.assertIn("Remove analyst or promotional closes like 'Watch...'", CREATOR_REFINER_SYSTEM_PROMPT)
 
 
 if __name__ == "__main__":
